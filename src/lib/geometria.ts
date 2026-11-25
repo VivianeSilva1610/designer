@@ -234,7 +234,9 @@ export function nivelFolga(d: number): "apertado" | "justo" | "bom" {
   return "bom";
 }
 
-const ehTapete = (m: Movel) => /tapete/i.test(m.nome);
+/** Peças que não ocupam o piso: tapete, marcação de giro PCD e coifa (fica no alto). */
+export const naoOcupaPiso = (nome: string) => /tapete|área de giro|coifa/i.test(nome);
+const ehTapete = (m: Movel) => naoOcupaPiso(m.nome);
 
 /** Distância de um ponto, numa direção, até a primeira parede. */
 function raioAteParede(p: Planta, origem: Ponto, d: Ponto) {
@@ -325,7 +327,7 @@ export function conflitosPlanta(p: Planta): string[] {
     const giro = !ab.abreParaFora ? giroPorta(p, ab) : null;
     if (!giro) continue;
     for (const m of p.moveis) {
-      if (/tapete/i.test(m.nome)) continue;
+      if (ehTapete(m)) continue;
       if (sobrepoem(giro, cantosMovel(m))) avisos.push(`A porta da parede ${letraParede(ab.parede)} bate em “${m.nome}”.`);
     }
   }

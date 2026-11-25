@@ -19,6 +19,8 @@ export const ESTILOS = [
   "Japandi",
   "Tropical",
   "Mid-century",
+  "Bistrô",
+  "Boteco",
 ];
 
 export const AMBIENTES = [
@@ -39,6 +41,19 @@ export const AMBIENTES = [
   "Área gourmet",
   "Lavanderia",
   "Área comercial",
+  // comerciais (restaurante, bar, café)
+  "Recepção / hostess",
+  "Salão",
+  "Bar",
+  "Cozinha industrial",
+  "Estoque / despensa",
+  "Câmara fria",
+  "Banheiro feminino",
+  "Banheiro masculino",
+  "Banheiro PCD",
+  "Vestiário de funcionários",
+  "Escritório",
+  "Área externa / deck",
 ];
 
 /** Conjuntos prontos para projetos completos. */
@@ -52,6 +67,11 @@ export const PACOTES_AMBIENTES: { nome: string; ambientes: string[] }[] = [
     ambientes: ["Sala de estar e jantar", "Cozinha", "Quarto de casal", "Quarto de solteiro", "Banheiro", "Lavanderia", "Varanda"],
   },
   { nome: "Área social", ambientes: ["Sala de estar", "Sala de jantar", "Lavabo", "Varanda"] },
+  {
+    nome: "Restaurante com bar",
+    ambientes: ["Recepção / hostess", "Salão", "Bar", "Cozinha industrial", "Estoque / despensa", "Banheiro feminino", "Banheiro masculino", "Banheiro PCD", "Vestiário de funcionários", "Área externa / deck"],
+  },
+  { nome: "Café / bistrô", ambientes: ["Salão", "Bar", "Cozinha industrial", "Estoque / despensa", "Banheiro PCD"] },
 ];
 
 export interface Item {
@@ -74,6 +94,7 @@ export interface Movel {
   w: number;
   h: number;
   cor: string;
+  grupo?: string; // peças de um mesmo conjunto (ex.: mesa + cadeiras) se movem juntas
 }
 
 export type TipoAbertura = "porta" | "porta_dupla" | "porta_correr" | "porta_balcao" | "janela" | "vao";

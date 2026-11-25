@@ -4,7 +4,27 @@ export interface ItemBiblioteca {
   w: number;
   h: number;
   cor: string;
+  /** conjunto: peças posicionadas dentro de w × h (ex.: mesa + cadeiras) */
+  partes?: { nome: string; w: number; h: number; cor: string; dx: number; dy: number }[];
 }
+
+/** Quantos lugares sentados uma peça oferece (para restaurantes e salas). */
+export function lugaresDoMovel(nome: string): number {
+  const n = nome.toLowerCase();
+  if (/cadeira escritório|cadeira de escritório/.test(n)) return 0;
+  if (/banco booth|namoradeira/.test(n)) return 2;
+  if (/sofá 3|sofá de canto/.test(n)) return 3;
+  if (/sofá/.test(n)) return 2;
+  if (/cadeira|banqueta|poltrona/.test(n)) return 1;
+  return 0;
+}
+
+const CADEIRA = "#c9a98a";
+const MESA_REST = "#a98463";
+const ESTOFADO_BOOTH = "#8a4f3d";
+const INOX_IND = "#cfd4d8";
+const cad = (dx: number, dy: number) => ({ nome: "Cadeira", w: 0.45, h: 0.45, cor: CADEIRA, dx, dy });
+const banq = (dx: number, dy: number) => ({ nome: "Banqueta alta", w: 0.4, h: 0.4, cor: CADEIRA, dx, dy });
 
 /**
  * Medidas de uma TV 16:9 a partir da diagonal em polegadas (com ~1,5 cm de borda).
@@ -92,10 +112,81 @@ export const BIBLIOTECA: { categoria: string; itens: ItemBiblioteca[] }[] = [
       { nome: "Bancada com 2 cubas", w: 1.4, h: 0.5, cor: PEDRA },
       { nome: "Vaso sanitário", w: 0.4, h: 0.65, cor: LOUCA },
       { nome: "Bidê", w: 0.38, h: 0.55, cor: LOUCA },
+      { nome: "Mictório", w: 0.4, h: 0.35, cor: LOUCA },
+      { nome: "Área de giro PCD (Ø 1,50 m)", w: 1.5, h: 1.5, cor: "#d6e4f0" },
       { nome: "Box chuveiro", w: 0.9, h: 0.9, cor: VIDRO },
       { nome: "Box chuveiro retangular", w: 1.2, h: 0.8, cor: VIDRO },
       { nome: "Banheira", w: 1.7, h: 0.75, cor: LOUCA },
       { nome: "Gabinete / armário", w: 0.6, h: 0.45, cor: MADEIRA },
+    ],
+  },
+  {
+    categoria: "Restaurante e bar",
+    itens: [
+      // conjuntos: entram já montados e se movem juntos
+      {
+        nome: "Conjunto mesa 2 lugares", w: 0.7, h: 1.6, cor: MESA_REST,
+        partes: [{ nome: "Mesa 2 lug. (70×70)", w: 0.7, h: 0.7, cor: MESA_REST, dx: 0, dy: 0.45 }, cad(0.125, 0), cad(0.125, 1.15)],
+      },
+      {
+        nome: "Conjunto mesa 4 lugares", w: 1.7, h: 1.7, cor: MESA_REST,
+        partes: [{ nome: "Mesa 4 lug. (80×80)", w: 0.8, h: 0.8, cor: MESA_REST, dx: 0.45, dy: 0.45 }, cad(0.625, 0), cad(0.625, 1.25), cad(0, 0.625), cad(1.25, 0.625)],
+      },
+      {
+        nome: "Conjunto mesa 6 lugares", w: 1.6, h: 1.7, cor: MESA_REST,
+        partes: [{ nome: "Mesa 6 lug. (160×80)", w: 1.6, h: 0.8, cor: MESA_REST, dx: 0, dy: 0.45 }, cad(0.15, 0), cad(0.575, 0), cad(1.0, 0), cad(0.15, 1.25), cad(0.575, 1.25), cad(1.0, 1.25)],
+      },
+      {
+        nome: "Booth (cabine) 4 lugares", w: 1.2, h: 1.9, cor: ESTOFADO_BOOTH,
+        partes: [
+          { nome: "Banco booth", w: 1.2, h: 0.6, cor: ESTOFADO_BOOTH, dx: 0, dy: 0 },
+          { nome: "Mesa booth", w: 1.0, h: 0.7, cor: MESA_REST, dx: 0.1, dy: 0.6 },
+          { nome: "Banco booth", w: 1.2, h: 0.6, cor: ESTOFADO_BOOTH, dx: 0, dy: 1.3 },
+        ],
+      },
+      {
+        nome: "Bistrô alto 2 lugares", w: 1.4, h: 0.6, cor: MESA_REST,
+        partes: [{ nome: "Mesa alta bistrô", w: 0.6, h: 0.6, cor: MESA_REST, dx: 0.4, dy: 0 }, banq(0, 0.1), banq(1.0, 0.1)],
+      },
+      {
+        nome: "Balcão de bar + 5 banquetas", w: 3.0, h: 1.15, cor: "#5b4636",
+        partes: [{ nome: "Balcão de bar", w: 3.0, h: 0.6, cor: "#5b4636", dx: 0, dy: 0 }, ...[0, 1, 2, 3, 4].map((k) => banq(0.1 + k * 0.6, 0.75))],
+      },
+      // peças avulsas
+      { nome: "Balcão de bar", w: 3.0, h: 0.6, cor: "#5b4636" },
+      { nome: "Balcão de bar em L", w: 2.4, h: 1.6, cor: "#5b4636" },
+      { nome: "Bancada de apoio (back bar)", w: 3.0, h: 0.5, cor: MADEIRA_ESCURA },
+      { nome: "Adega / expositor de bebidas", w: 0.9, h: 0.6, cor: "#3a3633" },
+      { nome: "Cervejeira / chopeira", w: 0.7, h: 0.7, cor: INOX_IND },
+      { nome: "Mesa 2 lug. (70×70)", w: 0.7, h: 0.7, cor: MESA_REST },
+      { nome: "Mesa 4 lug. (80×80)", w: 0.8, h: 0.8, cor: MESA_REST },
+      { nome: "Mesa 6 lug. (160×80)", w: 1.6, h: 0.8, cor: MESA_REST },
+      { nome: "Mesa alta bistrô", w: 0.6, h: 0.6, cor: MESA_REST },
+      { nome: "Cadeira", w: 0.45, h: 0.45, cor: CADEIRA },
+      { nome: "Banqueta alta", w: 0.4, h: 0.4, cor: CADEIRA },
+      { nome: "Banco booth", w: 1.2, h: 0.6, cor: ESTOFADO_BOOTH },
+      { nome: "Caixa / checkout", w: 1.2, h: 0.6, cor: MADEIRA_ESCURA },
+      { nome: "Púlpito de recepção (hostess)", w: 0.6, h: 0.5, cor: MADEIRA_ESCURA },
+      { nome: "Estação de garçom", w: 1.0, h: 0.5, cor: MADEIRA },
+      { nome: "Floreira / divisória", w: 1.2, h: 0.3, cor: "#a5c49a" },
+    ],
+  },
+  {
+    categoria: "Cozinha industrial",
+    itens: [
+      { nome: "Fogão industrial 6 bocas", w: 1.4, h: 0.9, cor: "#3a3633" },
+      { nome: "Chapa / char-broiler", w: 0.8, h: 0.7, cor: "#3a3633" },
+      { nome: "Fritadeira", w: 0.45, h: 0.7, cor: INOX_IND },
+      { nome: "Forno combinado", w: 0.9, h: 0.8, cor: INOX_IND },
+      { nome: "Coifa (sobre o fogão)", w: 2.0, h: 1.0, cor: "#e4e7ea" },
+      { nome: "Bancada inox", w: 1.5, h: 0.7, cor: INOX_IND },
+      { nome: "Pia industrial (2 cubas)", w: 1.5, h: 0.7, cor: INOX_IND },
+      { nome: "Mesa de preparo central", w: 1.8, h: 0.8, cor: INOX_IND },
+      { nome: "Geladeira industrial 4 portas", w: 1.2, h: 0.75, cor: INOX_IND },
+      { nome: "Freezer horizontal", w: 1.4, h: 0.7, cor: INOX },
+      { nome: "Lava-louças industrial", w: 0.65, h: 0.75, cor: INOX_IND },
+      { nome: "Estante inox", w: 1.2, h: 0.5, cor: INOX_IND },
+      { nome: "Câmara fria", w: 2.0, h: 2.0, cor: "#dfe7ec" },
     ],
   },
   {

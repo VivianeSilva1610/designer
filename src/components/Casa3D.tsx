@@ -19,7 +19,7 @@ type Modo = "maquete" | "caminhar";
 const ESPESSURA = 0.07; // cada cômodo levanta meia parede para dentro; vizinhos somam ~14 cm
 const OLHOS = 1.6;
 const RAIO_CORPO = 0.25;
-const AREAS_MOLHADAS = /cozinha|banheiro|lavabo|lavanderia|varanda|gourmet|área|externa/i;
+const AREAS_MOLHADAS = /cozinha|banheiro|lavabo|lavanderia|varanda|gourmet|área|externa|bar|estoque|despensa|câmara|vestiário|deck/i;
 
 /** Um ponto bem dentro do polígono (o centro de um L pode cair fora dele). */
 function pontoInterior(pts: Ponto[]): Ponto {

@@ -153,11 +153,24 @@ export function alturaMovel(nome: string): { altura: number; vidro?: boolean; ba
     const { altura } = medidaTV(pol);
     return { altura, base: +(1.05 - altura / 2).toFixed(2) };
   }
+  // coifa: fica no alto, sobre o fogão
+  if (/coifa/.test(n)) return { altura: 0.5, base: 1.9 };
   const regras: [RegExp, number, boolean?][] = [
-    [/tapete/, 0.01],
+    [/tapete|área de giro/, 0.01],
     [/box/, 2.0, true],
+    [/câmara fria/, 2.4],
     [/guarda-roupa|armário|torre quente|cristaleira/, 2.1],
+    [/geladeira industrial/, 2.0],
+    [/adega|expositor/, 1.8],
     [/geladeira/, 1.8],
+    [/balcão de bar/, 1.1],
+    [/caixa|checkout|hostess|púlpito|recepção/, 1.1],
+    [/mesa alta|bistrô/, 1.05],
+    [/banco booth/, 1.05],
+    [/floreira|divisória/, 1.1],
+    [/mictório/, 0.6],
+    [/forno combinado/, 1.0],
+    [/freezer|chopeira|cervejeira|fritadeira|chapa|estação de garçom|mesa de preparo/, 0.9],
     [/estante/, 1.8],
     [/rede/, 0.5],
     [/espreguiçadeira/, 0.4],

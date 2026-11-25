@@ -5,7 +5,8 @@ import { Suspense, useState, useSyncExternalStore } from "react";
 import PlantaSvg from "@/components/PlantaSvg";
 import { useProjetos } from "@/lib/store";
 import EditorFormato from "@/components/EditorFormato";
-import { BIBLIOTECA, medidaTV, polegadasDaTV, type ItemBiblioteca } from "@/lib/biblioteca";
+import { BIBLIOTECA, lugaresDoMovel, medidaTV, polegadasDaTV, type ItemBiblioteca } from "@/lib/biblioteca";
+import { desagrupar, duplicarConjunto, girarConjunto, membros, moverConjunto, pecasDoItem, removerConjunto, repetirEmGrade } from "@/lib/conjuntos";
 import {
   DIRECAO_LABEL,
   aplicarCantos,
@@ -16,6 +17,7 @@ import {
   conflitosPlanta,
   folgasMovel,
   letraParede,
+  naoOcupaPiso,
   nivelFolga,
   paredes,
 } from "@/lib/geometria";
@@ -116,6 +118,7 @@ function Editor() {
   const [buscaMovel, setBuscaMovel] = useState("");
   const [mostrarFolgas, setMostrarFolgas] = useState(true);
   const [regua, setRegua] = useState(false);
+  const [grade, setGrade] = useState({ linhas: "3", colunas: "4", folga: "0.60" });
   const [movelPers, setMovelPers] = useState<{ aberto: boolean; nome: string; w: string; h: string; cor: string }>({ aberto: false, nome: "", w: "1.00", h: "0.60", cor: "#b8987a" });
 
   const projeto = projetos.find((p) => p.id === projetoId);
@@ -208,14 +211,17 @@ function Editor() {
       }),
     }));
   }
-  const ocupada = planta.moveis.filter((m) => m.nome !== "Tapete").reduce((s, m) => s + m.w * m.h, 0);
+  const ocupada = planta.moveis.filter((m) => !naoOcupaPiso(m.nome)).reduce((s, m) => s + m.w * m.h, 0);
 
   function adicionar(b: ItemBiblioteca) {
-    const m: Movel = { id: novoId(), nome: b.nome, w: b.w, h: b.h, cor: b.cor, x: 0.2, y: 0.2 };
+    const pecas = pecasDoItem(b, 0.2, 0.2);
     // tapetes ficam por baixo dos outros móveis
-    setPlanta((p) => ({ ...p, moveis: /tapete/i.test(b.nome) ? [m, ...p.moveis] : [...p.moveis, m] }));
-    setSel(m.id);
+    setPlanta((p) => ({ ...p, moveis: /tapete|área de giro/i.test(b.nome) ? [...pecas, ...p.moveis] : [...p.moveis, ...pecas] }));
+    setSel(pecas[0].id);
   }
+
+  const lugares = planta.moveis.reduce((s, m) => s + lugaresDoMovel(m.nome), 0);
+  const conjuntoSel = movel ? membros(planta.moveis, movel) : [];
 
   function mudarMovel(id: string, campos: Partial<Movel>) {
     setPlanta((p) => ({ ...p, moveis: p.moveis.map((m) => (m.id === id ? { ...m, ...campos } : m)) }));
@@ -274,6 +280,17 @@ function Editor() {
           />
           <div className="text-sm text-muted">
             Área: <b className="text-ink">{area.toFixed(2)} m²</b> · livre: <b className="text-ink">{areaLivre(planta).toFixed(2)} m²</b> · ocupação: <b className="text-ink">{area ? Math.round((ocupada / area) * 100) : 0}%</b>
+            {lugares > 0 && (
+              <div className="mt-1" title="Referência para salões de restaurante: cerca de 1,2 a 1,5 m² por lugar, já contando a circulação">
+                Lugares: <b className="text-ink">{lugares}</b> · <b className="text-ink">{(area / lugares).toFixed(2).replace(".", ",")} m²</b> por lugar
+                {(() => {
+                  const r = area / lugares;
+                  if (r < 1.1) return <span className="text-danger"> (apertado)</span>;
+                  if (r <= 1.6) return <span className="text-ok"> (bom para restaurante)</span>;
+                  return <span> (espaçoso)</span>;
+                })()}
+              </div>
+            )}
           </div>
           <div>
             <div className="label">Portas e janelas</div>
@@ -469,7 +486,8 @@ function Editor() {
             planta={planta}
             selecionado={sel}
             onSelecionar={setSel}
-            onMover={(id, x, y) => mudarMovel(id, { x, y })}
+            onMover={(id, x, y) => setPlanta((p) => ({ ...p, moveis: moverConjunto(p.moveis, id, x, y) }))}
+            destacados={conjuntoSel.length > 1 ? conjuntoSel.map((m) => m.id) : undefined}
             onMoverAbertura={(id, parede, posicao) => mudarAbertura(id, { parede, posicao })}
             editarCantos={editandoCantos}
             cantoSelecionado={cantoSel}
@@ -618,28 +636,67 @@ function Editor() {
                 <label className="label">Cor</label>
                 <input type="color" className="h-9 w-full rounded-lg" value={movel.cor} onChange={(e) => mudarMovel(movel.id, { cor: e.target.value })} />
               </div>
+              {conjuntoSel.length > 1 && (
+                <div className="rounded-xl bg-accent-soft px-3 py-2 text-xs text-accent">
+                  Parte de um <b>conjunto de {conjuntoSel.length} peças</b>: mover, girar, duplicar e repetir valem para o conjunto todo.
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
-                <button className="btn-ghost" onClick={() => mudarMovel(movel.id, { w: movel.h, h: movel.w })}>⟳ Girar 90°</button>
+                <button className="btn-ghost" onClick={() => setPlanta((p) => ({ ...p, moveis: girarConjunto(p.moveis, movel.id) }))}>⟳ Girar 90°</button>
                 <button
                   className="btn-ghost"
                   onClick={() => {
-                    const c = { ...movel, id: novoId(), x: movel.x + 0.2, y: movel.y + 0.2 };
-                    setPlanta((p) => ({ ...p, moveis: [...p.moveis, c] }));
-                    setSel(c.id);
+                    const r = duplicarConjunto(planta.moveis, movel.id);
+                    setPlanta((p) => ({ ...p, moveis: r.moveis }));
+                    setSel(r.selecionar);
                   }}
                 >
                   Duplicar
                 </button>
+                {conjuntoSel.length > 1 && (
+                  <button className="btn-ghost" onClick={() => setPlanta((p) => ({ ...p, moveis: desagrupar(p.moveis, movel.id) }))} title="Separa as peças para mexer em cada uma">
+                    Desagrupar
+                  </button>
+                )}
                 <button
                   className="btn-ghost text-danger"
                   onClick={() => {
-                    setPlanta((p) => ({ ...p, moveis: p.moveis.filter((m) => m.id !== movel.id) }));
+                    setPlanta((p) => ({ ...p, moveis: removerConjunto(p.moveis, movel.id) }));
                     setSel(null);
                   }}
                 >
                   Remover
                 </button>
               </div>
+              <details className="rounded-xl border border-line p-2 text-sm">
+                <summary className="cursor-pointer font-medium">▦ Repetir em grade</summary>
+                <p className="mt-1 text-xs text-muted">Cria cópias {conjuntoSel.length > 1 ? "do conjunto" : "da peça"} em linhas e colunas — ótimo para salões de restaurante.</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="label">Linhas</label>
+                    <input className="input" type="number" min="1" max="30" value={grade.linhas} onChange={(e) => setGrade({ ...grade, linhas: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Colunas</label>
+                    <input className="input" type="number" min="1" max="30" value={grade.colunas} onChange={(e) => setGrade({ ...grade, colunas: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label" title="Espaço livre entre um e outro">Espaço (m)</label>
+                    <input className="input" type="number" min="0" step="0.05" value={grade.folga} onChange={(e) => setGrade({ ...grade, folga: e.target.value })} />
+                  </div>
+                </div>
+                <button
+                  className="btn mt-2 w-full"
+                  onClick={() => {
+                    const l = Math.min(30, Math.max(1, Math.round(Number(grade.linhas) || 1)));
+                    const c = Math.min(30, Math.max(1, Math.round(Number(grade.colunas) || 1)));
+                    setPlanta((p) => ({ ...p, moveis: repetirEmGrade(p.moveis, movel.id, l, c, Math.max(0, Number(grade.folga) || 0)) }));
+                  }}
+                >
+                  Repetir ({Math.max(1, Number(grade.linhas) || 1) * Math.max(1, Number(grade.colunas) || 1)} no total)
+                </button>
+                <p className="mt-1 text-xs text-muted">Restaurantes: deixe ao menos 0,90 m nas passagens principais (rota acessível).</p>
+              </details>
             </>
           ) : (
             <p className="text-sm text-muted">Clique em um móvel, porta ou janela na planta para editar medidas, girar ou remover.</p>

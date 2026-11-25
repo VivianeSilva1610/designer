@@ -20,6 +20,8 @@ interface Props {
   mostrarFolgas?: boolean;
   /** modo régua: arrastar no desenho mede a distância entre dois pontos */
   regua?: boolean;
+  /** peças destacadas junto com a selecionada (ex.: o resto do conjunto) */
+  destacados?: string[];
 }
 
 const COR_FOLGA = { apertado: "#b04a3f", justo: "#b5832f", bom: "#4f7a5a" };
@@ -131,7 +133,7 @@ export function SimboloAbertura({ a, sel }: { a: Abertura; sel: boolean }) {
 }
 
 export default function PlantaSvg(props: Props) {
-  const { planta, selecionado, onSelecionar, onMover, onMoverAbertura, editarCantos, cantoSelecionado, onSelecionarCanto, onMoverCanto, onInserirCanto, mostrarFolgas, regua } = props;
+  const { planta, selecionado, onSelecionar, onMover, onMoverAbertura, editarCantos, cantoSelecionado, onSelecionarCanto, onMoverCanto, onInserirCanto, mostrarFolgas, regua, destacados } = props;
   const svgRef = useRef<SVGSVGElement>(null);
   const arrasto = useRef<{ tipo: "movel" | "abertura" | "canto" | "regua"; id: string; dx: number; dy: number } | null>(null);
   const clipId = useId();
@@ -141,13 +143,14 @@ export default function PlantaSvg(props: Props) {
   const listaParedes = paredes(planta);
   const box = caixa(pts);
   const aberturas = planta.aberturas ?? [];
-  const MARGEM = Math.max(
-    MARGEM_MIN,
-    ...aberturas.filter((a) => temGiro(a) && a.abreParaFora).map((a) => raioGiro(a) + 0.2)
-  );
   const largura = box.maxX - box.minX;
   const altura = box.maxY - box.minY;
   const escalaTexto = Math.max(1, Math.max(largura, altura) / 6); // textos legíveis em cômodos grandes
+  // a margem cresce com o texto das medidas (senão elas ficam cortadas em plantas grandes)
+  const MARGEM = Math.max(
+    MARGEM_MIN * escalaTexto * 1.15,
+    ...aberturas.filter((a) => temGiro(a) && a.abreParaFora).map((a) => raioGiro(a) + 0.2)
+  );
 
   function pontoEmMetros(e: React.PointerEvent): Ponto {
     const svg = svgRef.current!;
@@ -255,10 +258,11 @@ export default function PlantaSvg(props: Props) {
 
       {planta.moveis.map((m) => {
         const sel = m.id === selecionado;
+        const doConjunto = !sel && Boolean(destacados?.includes(m.id));
         const fonte = Math.min(0.2, Math.max(0.1, Math.min(m.w, m.h) / 4));
         return (
           <g key={m.id} onPointerDown={(e) => iniciarMovel(e, m)} style={{ cursor: onMover && !editarCantos ? "move" : "default" }} opacity={editarCantos ? 0.4 : 1}>
-            <rect x={m.x} y={m.y} width={m.w} height={m.h} rx={0.04} fill={m.cor} fillOpacity={0.85} stroke={sel ? "#a0673f" : "#2b2622"} strokeWidth={sel ? 0.05 : 0.015} />
+            <rect x={m.x} y={m.y} width={m.w} height={m.h} rx={0.04} fill={m.cor} fillOpacity={0.85} stroke={sel || doConjunto ? "#a0673f" : "#2b2622"} strokeWidth={sel ? 0.05 : doConjunto ? 0.03 : 0.015} strokeDasharray={doConjunto ? "0.06 0.04" : undefined} />
             <text
               x={m.x + m.w / 2}
               y={m.y + m.h / 2}
