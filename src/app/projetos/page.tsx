@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import SeletorAmbientes from "@/components/SeletorAmbientes";
-import { useProjetos } from "@/lib/store";
+import { exportarBackup, importarBackup, useProjetos } from "@/lib/store";
 import { ESTILOS, STATUS_LABEL, brl, novoId, resumoAmbientes, totalItens, type Ambiente, type Projeto } from "@/lib/types";
 
 export default function Projetos() {
@@ -12,6 +12,7 @@ export default function Projetos() {
   const router = useRouter();
   const [mostrarForm, setMostrarForm] = useState(false);
   const [busca, setBusca] = useState("");
+  const [avisoBackup, setAvisoBackup] = useState("");
   const [form, setForm] = useState({
     nome: "",
     cliente: "",
@@ -50,10 +51,48 @@ export default function Projetos() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="h1">Projetos</h1>
-        <button className="btn" onClick={() => setMostrarForm(!mostrarForm)}>
-          {mostrarForm ? "Cancelar" : "+ Novo projeto"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="btn-ghost"
+            title="Baixa um arquivo com todos os projetos deste navegador"
+            disabled={projetos.length === 0}
+            onClick={() => {
+              const n = exportarBackup();
+              setAvisoBackup(`Backup com ${n} projeto(s) baixado. Use “Importar backup” no outro computador ou no site.`);
+            }}
+          >
+            ⬇ Exportar backup
+          </button>
+          <label className="btn-ghost cursor-pointer" title="Traz projetos de um arquivo de backup">
+            ⬆ Importar backup
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={async (e) => {
+                const arquivo = e.target.files?.[0];
+                e.target.value = "";
+                if (!arquivo) return;
+                try {
+                  const { novos, atualizados } = await importarBackup(arquivo);
+                  setAvisoBackup(`Importado: ${novos} projeto(s) novo(s)${atualizados ? ` e ${atualizados} atualizado(s)` : ""} ✔`);
+                } catch (err) {
+                  setAvisoBackup(err instanceof Error ? err.message : "Não foi possível importar o backup.");
+                }
+              }}
+            />
+          </label>
+          <button className="btn" onClick={() => setMostrarForm(!mostrarForm)}>
+            {mostrarForm ? "Cancelar" : "+ Novo projeto"}
+          </button>
+        </div>
       </div>
+      {avisoBackup && (
+        <div className="flex items-start justify-between gap-3 rounded-xl bg-accent-soft px-4 py-2 text-sm text-accent">
+          <span>{avisoBackup}</span>
+          <button onClick={() => setAvisoBackup("")} aria-label="Fechar aviso">✕</button>
+        </div>
+      )}
 
       {mostrarForm && (
         <form onSubmit={criar} className="card grid gap-4 sm:grid-cols-2">

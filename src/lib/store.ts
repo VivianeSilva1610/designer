@@ -56,6 +56,74 @@ function gravar(lista: Projeto[]) {
   ouvintes.forEach((f) => f());
 }
 
+/* ───────────── Backup (exportar / importar) ───────────── */
+
+const CHAVE_MODELOS = "studio-interiores:modelos-aberturas";
+
+interface Backup {
+  app: "studio-interiores";
+  versao: 1;
+  exportadoEm: string;
+  projetos: Projeto[];
+  modelosAberturas?: unknown[];
+}
+
+/** Baixa um arquivo .json com todos os projetos deste navegador. */
+export function exportarBackup() {
+  let modelos: unknown[] = [];
+  try {
+    modelos = JSON.parse(localStorage.getItem(CHAVE_MODELOS) ?? "[]");
+  } catch {
+    /* sem modelos salvos */
+  }
+  const backup: Backup = { app: "studio-interiores", versao: 1, exportadoEm: new Date().toISOString(), projetos: ler(), modelosAberturas: modelos };
+  const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `studio-interiores-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return backup.projetos.length;
+}
+
+/**
+ * Lê um arquivo de backup e junta com os projetos deste navegador.
+ * Projetos com o mesmo id são substituídos pela versão do arquivo.
+ */
+export async function importarBackup(arquivo: File): Promise<{ novos: number; atualizados: number }> {
+  let dados: Partial<Backup>;
+  try {
+    dados = JSON.parse(await arquivo.text());
+  } catch {
+    throw new Error("O arquivo não é um backup válido (JSON ilegível).");
+  }
+  if (dados.app !== "studio-interiores" || !Array.isArray(dados.projetos)) {
+    throw new Error("Este arquivo não é um backup do Studio Interiores.");
+  }
+  const importados = (dados.projetos as ProjetoAntigo[]).map(migrar);
+  const atuais = ler();
+  const idsAtuais = new Set(atuais.map((p) => p.id));
+  const idsImportados = new Set(importados.map((p) => p.id));
+  const atualizados = importados.filter((p) => idsAtuais.has(p.id)).length;
+  gravar([...importados, ...atuais.filter((p) => !idsImportados.has(p.id))]);
+
+  // modelos de portas/janelas: soma os do arquivo aos que já existem (sem repetir nome)
+  if (Array.isArray(dados.modelosAberturas) && dados.modelosAberturas.length) {
+    try {
+      const existentes = JSON.parse(localStorage.getItem(CHAVE_MODELOS) ?? "[]") as { nome: string }[];
+      const nomes = new Set(existentes.map((m) => m.nome));
+      const novos = (dados.modelosAberturas as { nome: string }[]).filter((m) => m && !nomes.has(m.nome));
+      localStorage.setItem(CHAVE_MODELOS, JSON.stringify([...existentes, ...novos]));
+    } catch {
+      /* armazenamento indisponível: ignora os modelos */
+    }
+  }
+  return { novos: importados.length - atualizados, atualizados };
+}
+
 function assinar(f: () => void) {
   ouvintes.add(f);
   return () => ouvintes.delete(f);
