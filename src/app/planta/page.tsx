@@ -1,60 +1,101 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState, useSyncExternalStore } from "react";
 import PlantaSvg from "@/components/PlantaSvg";
 import { useProjetos } from "@/lib/store";
+import EditorFormato from "@/components/EditorFormato";
+import { BIBLIOTECA, type ItemBiblioteca } from "@/lib/biblioteca";
 import {
-  PAREDE_LABEL,
-  TIPO_ABERTURA_LABEL,
+  DIRECAO_LABEL,
+  aplicarCantos,
+  areaLivre,
+  areaPlanta,
+  cantos,
   comprimentoParede,
   conflitosPlanta,
+  folgasMovel,
+  letraParede,
+  nivelFolga,
+  paredes,
+} from "@/lib/geometria";
+import {
+  TIPO_ABERTURA_LABEL,
   novoId,
+  temGiro,
   type Abertura,
   type Movel,
-  type Parede,
   type Planta,
   type TipoAbertura,
 } from "@/lib/types";
 
-const BIBLIOTECA_ABERTURAS: { nome: string; tipo: TipoAbertura; largura: number; altura: number; peitoril: number }[] = [
+interface ModeloAbertura {
+  nome: string;
+  tipo: TipoAbertura;
+  largura: number;
+  altura: number;
+  peitoril: number;
+}
+
+const CHAVE_MODELOS = "studio-interiores:modelos-aberturas";
+const ICONE: Record<TipoAbertura, string> = { porta: "◜", porta_dupla: "◠", porta_correr: "⇆", porta_balcao: "⇆", janela: "▭", vao: "⊓" };
+
+// "Meus modelos" de portas/janelas: guardados no navegador e lidos com useSyncExternalStore
+const ouvintesModelos = new Set<() => void>();
+const SEM_MODELOS: ModeloAbertura[] = [];
+let cacheModelos: ModeloAbertura[] | null = null;
+
+function lerModelos(): ModeloAbertura[] {
+  if (cacheModelos) return cacheModelos;
+  try {
+    cacheModelos = JSON.parse(localStorage.getItem(CHAVE_MODELOS) ?? "[]");
+  } catch {
+    cacheModelos = [];
+  }
+  return cacheModelos!;
+}
+
+function gravarModelos(lista: ModeloAbertura[]) {
+  cacheModelos = lista;
+  try {
+    localStorage.setItem(CHAVE_MODELOS, JSON.stringify(lista));
+  } catch {
+    /* armazenamento indisponível: os modelos valem só nesta sessão */
+  }
+  ouvintesModelos.forEach((f) => f());
+}
+
+function assinarModelos(f: () => void) {
+  ouvintesModelos.add(f);
+  return () => {
+    ouvintesModelos.delete(f);
+  };
+}
+
+/** Valores típicos ao trocar o tipo no formulário personalizado. */
+const SUGESTAO: Record<TipoAbertura, { largura: number; altura: number; peitoril: number }> = {
+  porta: { largura: 0.8, altura: 2.1, peitoril: 0 },
+  porta_dupla: { largura: 1.4, altura: 2.1, peitoril: 0 },
+  porta_correr: { largura: 1.6, altura: 2.1, peitoril: 0 },
+  porta_balcao: { largura: 2.0, altura: 2.2, peitoril: 0 },
+  janela: { largura: 1.2, altura: 1.2, peitoril: 1.1 },
+  vao: { largura: 1.0, altura: 2.1, peitoril: 0 },
+};
+
+const BIBLIOTECA_ABERTURAS: ModeloAbertura[] = [
   { nome: "Porta 80 cm", tipo: "porta", largura: 0.8, altura: 2.1, peitoril: 0 },
   { nome: "Porta 70 cm (banheiro)", tipo: "porta", largura: 0.7, altura: 2.1, peitoril: 0 },
   { nome: "Porta de entrada 90 cm", tipo: "porta", largura: 0.9, altura: 2.1, peitoril: 0 },
+  { nome: "Porta dupla 1,40 m", tipo: "porta_dupla", largura: 1.4, altura: 2.1, peitoril: 0 },
   { nome: "Porta de correr 1,60 m", tipo: "porta_correr", largura: 1.6, altura: 2.1, peitoril: 0 },
   { nome: "Janela 1,20 m", tipo: "janela", largura: 1.2, altura: 1.2, peitoril: 1.1 },
   { nome: "Janela 1,50 m", tipo: "janela", largura: 1.5, altura: 1.2, peitoril: 1.0 },
   { nome: "Janela alta (banheiro) 60 cm", tipo: "janela", largura: 0.6, altura: 0.6, peitoril: 1.6 },
   { nome: "Porta-balcão 2,00 m", tipo: "porta_balcao", largura: 2.0, altura: 2.2, peitoril: 0 },
+  { nome: "Vão livre 1,00 m", tipo: "vao", largura: 1.0, altura: 2.1, peitoril: 0 },
 ];
 
-const BIBLIOTECA: { nome: string; w: number; h: number; cor: string }[] = [
-  { nome: "Sofá 3 lugares", w: 2.1, h: 0.9, cor: "#d9c3a5" },
-  { nome: "Sofá 2 lugares", w: 1.6, h: 0.9, cor: "#d9c3a5" },
-  { nome: "Poltrona", w: 0.8, h: 0.8, cor: "#c9a98a" },
-  { nome: "Mesa de centro", w: 1.0, h: 0.6, cor: "#b8987a" },
-  { nome: "Rack / painel TV", w: 1.8, h: 0.45, cor: "#9c8169" },
-  { nome: "Tapete", w: 2.0, h: 1.4, cor: "#eadfcf" },
-  { nome: "Mesa de jantar 6 lug.", w: 1.6, h: 0.9, cor: "#b8987a" },
-  { nome: "Mesa redonda 4 lug.", w: 1.1, h: 1.1, cor: "#b8987a" },
-  { nome: "Cadeira", w: 0.45, h: 0.5, cor: "#c9a98a" },
-  { nome: "Buffet / aparador", w: 1.6, h: 0.45, cor: "#9c8169" },
-  { nome: "Cama casal", w: 1.4, h: 1.9, cor: "#cfd8dc" },
-  { nome: "Cama queen", w: 1.6, h: 2.0, cor: "#cfd8dc" },
-  { nome: "Cama king", w: 1.93, h: 2.03, cor: "#cfd8dc" },
-  { nome: "Cama solteiro", w: 0.88, h: 1.88, cor: "#cfd8dc" },
-  { nome: "Criado-mudo", w: 0.5, h: 0.4, cor: "#9c8169" },
-  { nome: "Guarda-roupa", w: 2.0, h: 0.6, cor: "#8d7560" },
-  { nome: "Escrivaninha", w: 1.2, h: 0.6, cor: "#b8987a" },
-  { nome: "Cadeira escritório", w: 0.6, h: 0.6, cor: "#a5b4a0" },
-  { nome: "Estante", w: 1.0, h: 0.35, cor: "#8d7560" },
-  { nome: "Bancada cozinha", w: 2.4, h: 0.6, cor: "#bfc5c9" },
-  { nome: "Geladeira", w: 0.7, h: 0.7, cor: "#dfe3e6" },
-  { nome: "Fogão", w: 0.6, h: 0.6, cor: "#dfe3e6" },
-  { nome: "Vaso sanitário", w: 0.4, h: 0.65, cor: "#ffffff" },
-  { nome: "Box chuveiro", w: 0.9, h: 0.9, cor: "#dbe9f0" },
-  { nome: "Planta / vaso", w: 0.45, h: 0.45, cor: "#a5c49a" },
-];
+const FORM_INICIAL = { tipo: "porta" as TipoAbertura, largura: "0.80", altura: "2.10", peitoril: "0", parede: "auto", posicao: "", nome: "", salvar: false };
 
 const PADRAO: Planta = { largura: 4, comprimento: 5, moveis: [] };
 
@@ -66,36 +107,49 @@ function Editor() {
   const [planta, setPlanta] = useState<Planta>(PADRAO);
   const [sel, setSel] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
+  const [mostrarPersonalizada, setMostrarPersonalizada] = useState(false);
+  const [form, setForm] = useState(FORM_INICIAL);
+  const modelos = useSyncExternalStore(assinarModelos, lerModelos, () => SEM_MODELOS);
+  const [erroForm, setErroForm] = useState("");
+  const [editandoCantos, setEditandoCantos] = useState(false);
+  const [cantoSel, setCantoSel] = useState<number | null>(null);
+  const [buscaMovel, setBuscaMovel] = useState("");
+  const [mostrarFolgas, setMostrarFolgas] = useState(true);
+  const [regua, setRegua] = useState(false);
+  const [movelPers, setMovelPers] = useState<{ aberto: boolean; nome: string; w: string; h: string; cor: string }>({ aberto: false, nome: "", w: "1.00", h: "0.60", cor: "#b8987a" });
 
   const projeto = projetos.find((p) => p.id === projetoId);
   const ambiente = projeto?.ambientes.find((a) => a.id === ambienteId);
 
-  // ao trocar de projeto, escolhe o primeiro ambiente se o atual não pertencer a ele
-  useEffect(() => {
-    if (projeto && !projeto.ambientes.some((a) => a.id === ambienteId)) {
-      setAmbienteId(projeto.ambientes[0]?.id ?? "");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projeto?.id]);
-
-  // carrega a planta do ambiente escolhido
-  useEffect(() => {
-    if (ambiente) {
-      setPlanta(ambiente.planta ?? PADRAO);
-      setSel(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ambiente?.id]);
+  // Ajustes quando o projeto/ambiente muda, feitos durante a renderização
+  // (padrão recomendado pelo React em vez de useEffect + setState).
+  // 1) projeto novo: escolhe o primeiro ambiente se o atual não pertencer a ele
+  const [projetoVisto, setProjetoVisto] = useState<string | undefined>(undefined);
+  if (projeto && projeto.id !== projetoVisto) {
+    setProjetoVisto(projeto.id);
+    if (!projeto.ambientes.some((a) => a.id === ambienteId)) setAmbienteId(projeto.ambientes[0]?.id ?? "");
+  }
+  // 2) ambiente novo: carrega a planta dele
+  const [ambienteVisto, setAmbienteVisto] = useState<string | undefined>(undefined);
+  if (ambiente && ambiente.id !== ambienteVisto) {
+    setAmbienteVisto(ambiente.id);
+    setPlanta(ambiente.planta ?? PADRAO);
+    setSel(null);
+    setEditandoCantos(false);
+    setCantoSel(null);
+  }
 
   const movel = planta.moveis.find((m) => m.id === sel);
   const abertura = planta.aberturas?.find((a) => a.id === sel);
   const conflitos = conflitosPlanta(planta);
-  const area = planta.largura * planta.comprimento;
+  const area = areaPlanta(planta);
+  const listaParedes = paredes(planta);
 
-  function adicionarAbertura(b: (typeof BIBLIOTECA_ABERTURAS)[number]) {
-    // coloca na primeira parede com espaço livre, começando pela inferior
-    const ordem: Parede[] = ["sul", "norte", "oeste", "leste"];
-    const parede = ordem.find((pd) => comprimentoParede(planta, pd) >= b.largura + 0.2) ?? "sul";
+  function adicionarAbertura(b: ModeloAbertura, paredeEscolhida?: number, posicaoEscolhida?: number) {
+    // sem parede escolhida: a parede mais comprida
+    const maisLonga = [...listaParedes].sort((x, y) => y.comprimento - x.comprimento)[0];
+    const parede = paredeEscolhida ?? maisLonga?.i ?? 0;
+    const max = Math.max(0, comprimentoParede(planta, parede) - b.largura);
     const a: Abertura = {
       id: novoId(),
       tipo: b.tipo,
@@ -103,12 +157,43 @@ function Editor() {
       largura: b.largura,
       altura: b.altura,
       peitoril: b.peitoril,
-      posicao: +Math.max(0, (comprimentoParede(planta, parede) - b.largura) / 2).toFixed(2),
+      posicao: +Math.min(max, Math.max(0, posicaoEscolhida ?? max / 2)).toFixed(2),
       dobradica: "esquerda",
       abreParaFora: false,
     };
     setPlanta((p) => ({ ...p, aberturas: [...(p.aberturas ?? []), a] }));
     setSel(a.id);
+  }
+
+  function criarPersonalizada(e: React.FormEvent) {
+    e.preventDefault();
+    const num = (v: string) => Number(v.replace(",", "."));
+    const largura = num(form.largura);
+    const altura = num(form.altura);
+    const peitoril = form.tipo === "janela" ? num(form.peitoril) : 0;
+    if (!(largura >= 0.3 && largura <= 10)) return setErroForm("Largura deve ficar entre 0,30 e 10 m.");
+    if (!(altura >= 0.3 && altura <= 6)) return setErroForm("Altura deve ficar entre 0,30 e 6 m.");
+    if (!(peitoril >= 0 && peitoril <= 3)) return setErroForm("Peitoril deve ficar entre 0 e 3 m.");
+    const parede = form.parede === "auto" ? undefined : Number(form.parede);
+    const maiorParede = Math.max(...listaParedes.map((par) => par.comprimento));
+    if (largura > (parede !== undefined ? comprimentoParede(planta, parede) : maiorParede)) {
+      return setErroForm("A abertura é mais larga que a parede. Confira as medidas do cômodo.");
+    }
+    setErroForm("");
+    const modelo: ModeloAbertura = {
+      nome: form.nome.trim() || `${TIPO_ABERTURA_LABEL[form.tipo].split(" (")[0]} ${largura.toFixed(2).replace(".", ",")} m`,
+      tipo: form.tipo,
+      largura,
+      altura,
+      peitoril,
+    };
+    adicionarAbertura(modelo, parede, form.posicao ? num(form.posicao) : undefined);
+    if (form.salvar) {
+      const lista = [...modelos.filter((m) => m.nome !== modelo.nome), modelo];
+
+      gravarModelos(lista);
+    }
+    setForm({ ...form, nome: "", posicao: "", salvar: false });
   }
 
   function mudarAbertura(id: string, campos: Partial<Abertura>) {
@@ -125,10 +210,10 @@ function Editor() {
   }
   const ocupada = planta.moveis.filter((m) => m.nome !== "Tapete").reduce((s, m) => s + m.w * m.h, 0);
 
-  function adicionar(b: (typeof BIBLIOTECA)[number]) {
+  function adicionar(b: ItemBiblioteca) {
     const m: Movel = { id: novoId(), nome: b.nome, w: b.w, h: b.h, cor: b.cor, x: 0.2, y: 0.2 };
     // tapetes ficam por baixo dos outros móveis
-    setPlanta((p) => ({ ...p, moveis: b.nome === "Tapete" ? [m, ...p.moveis] : [...p.moveis, m] }));
+    setPlanta((p) => ({ ...p, moveis: /tapete/i.test(b.nome) ? [m, ...p.moveis] : [...p.moveis, m] }));
     setSel(m.id);
   }
 
@@ -168,31 +253,122 @@ function Editor() {
             </select>
           )}
           <button className="btn" onClick={salvar}>Salvar planta</button>
+          {projeto && ambiente?.planta && (
+            <a className="btn-ghost" href={`/projetos/${projeto.id}/casa?vista=3d&comodo=${ambiente.id}`} title="Salve antes para ver as últimas mudanças">
+              ◈ Ver em 3D
+            </a>
+          )}
         </div>
       </div>
       {aviso && <div className="rounded-xl bg-accent-soft px-4 py-2 text-sm text-accent">{aviso}</div>}
 
       <div className="grid gap-6 lg:grid-cols-[260px_1fr_260px]">
         <div className="card space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="label">Largura (m)</label>
-              <input className="input" type="number" step="0.05" min="1" value={planta.largura} onChange={(e) => setPlanta({ ...planta, largura: Math.max(1, Number(e.target.value) || 1) })} />
-            </div>
-            <div>
-              <label className="label">Comprimento (m)</label>
-              <input className="input" type="number" step="0.05" min="1" value={planta.comprimento} onChange={(e) => setPlanta({ ...planta, comprimento: Math.max(1, Number(e.target.value) || 1) })} />
-            </div>
-          </div>
+          <EditorFormato
+            planta={planta}
+            onChange={setPlanta}
+            editandoCantos={editandoCantos}
+            onEditandoCantos={setEditandoCantos}
+            cantoSelecionado={cantoSel}
+            onSelecionarCanto={setCantoSel}
+          />
           <div className="text-sm text-muted">
-            Área: <b className="text-ink">{area.toFixed(2)} m²</b> · ocupação dos móveis: <b className="text-ink">{area ? Math.round((ocupada / area) * 100) : 0}%</b>
+            Área: <b className="text-ink">{area.toFixed(2)} m²</b> · livre: <b className="text-ink">{areaLivre(planta).toFixed(2)} m²</b> · ocupação: <b className="text-ink">{area ? Math.round((ocupada / area) * 100) : 0}%</b>
           </div>
           <div>
             <div className="label">Portas e janelas</div>
+            <button
+              className={`mb-2 w-full ${mostrarPersonalizada ? "btn" : "btn-ghost"}`}
+              onClick={() => setMostrarPersonalizada(!mostrarPersonalizada)}
+            >
+              {mostrarPersonalizada ? "Fechar" : "✎ Criar com medida personalizada"}
+            </button>
+
+            {mostrarPersonalizada && (
+              <form onSubmit={criarPersonalizada} className="mb-3 space-y-2 rounded-xl border border-accent/40 bg-accent-soft/40 p-3">
+                <div>
+                  <label className="label">Tipo</label>
+                  <select
+                    className="input"
+                    value={form.tipo}
+                    onChange={(e) => {
+                      const tipo = e.target.value as TipoAbertura;
+                      const s = SUGESTAO[tipo];
+                      setForm({ ...form, tipo, largura: s.largura.toFixed(2), altura: s.altura.toFixed(2), peitoril: s.peitoril.toFixed(2) });
+                    }}
+                  >
+                    {Object.entries(TIPO_ABERTURA_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label">Largura (m)</label>
+                    <input className="input" inputMode="decimal" value={form.largura} onChange={(e) => setForm({ ...form, largura: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Altura (m)</label>
+                    <input className="input" inputMode="decimal" value={form.altura} onChange={(e) => setForm({ ...form, altura: e.target.value })} />
+                  </div>
+                  {form.tipo === "janela" && (
+                    <div className="col-span-2">
+                      <label className="label">Peitoril (m do piso)</label>
+                      <input className="input" inputMode="decimal" value={form.peitoril} onChange={(e) => setForm({ ...form, peitoril: e.target.value })} />
+                    </div>
+                  )}
+                  <div>
+                    <label className="label">Parede</label>
+                    <select className="input" value={form.parede} onChange={(e) => setForm({ ...form, parede: e.target.value })}>
+                      <option value="auto">Automática</option>
+                      {listaParedes.map((par) => <option key={par.i} value={par.i}>{letraParede(par.i)} ({par.comprimento.toFixed(2)} m)</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label" title="Distância a partir do início da parede">Do início (m)</label>
+                    <input className="input" inputMode="decimal" placeholder="centro" value={form.posicao} onChange={(e) => setForm({ ...form, posicao: e.target.value })} />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={form.salvar} onChange={(e) => setForm({ ...form, salvar: e.target.checked })} />
+                  Salvar em “Meus modelos”
+                </label>
+                {form.salvar && (
+                  <input className="input" placeholder="Nome do modelo (ex.: Porta suíte 72 cm)" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+                )}
+                {erroForm && <div className="text-xs text-danger">{erroForm}</div>}
+                <button className="btn w-full" type="submit">Adicionar na planta</button>
+              </form>
+            )}
+
+            {modelos.length > 0 && (
+              <div className="mb-2">
+                <div className="mb-1 text-xs font-medium text-muted">Meus modelos</div>
+                {modelos.map((b) => (
+                  <div key={b.nome} className="group flex items-center rounded-lg hover:bg-accent-soft">
+                    <button onClick={() => adicionarAbertura(b)} className="flex flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm" title={`${b.largura} × ${b.altura} m`}>
+                      <span className="w-4 text-center text-muted">{ICONE[b.tipo]}</span>
+                      {b.nome}
+                    </button>
+                    <button
+                      className="hidden px-2 text-xs text-danger group-hover:block"
+                      title="Excluir modelo"
+                      onClick={() => {
+                        const lista = modelos.filter((m) => m.nome !== b.nome);
+
+                        gravarModelos(lista);
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mb-1 text-xs font-medium text-muted">Medidas padrão</div>
             <div className="space-y-1">
               {BIBLIOTECA_ABERTURAS.map((b) => (
                 <button key={b.nome} onClick={() => adicionarAbertura(b)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-accent-soft">
-                  <span className="w-4 text-center text-muted">{b.tipo === "janela" ? "▭" : b.tipo === "porta" ? "◜" : "⇆"}</span>
+                  <span className="w-4 text-center text-muted">{ICONE[b.tipo]}</span>
                   {b.nome}
                 </button>
               ))}
@@ -200,28 +376,117 @@ function Editor() {
           </div>
           <div>
             <div className="label">Adicionar móvel</div>
-            <div className="max-h-[40vh] space-y-1 overflow-y-auto pr-1">
-              {BIBLIOTECA.map((b) => (
-                <button key={b.nome} onClick={() => adicionar(b)} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm hover:bg-accent-soft">
-                  <span className="flex items-center gap-2">
-                    <span className="h-3 w-3 rounded-sm border border-line" style={{ background: b.cor }} />
-                    {b.nome}
-                  </span>
-                  <span className="text-xs text-muted">{b.w}×{b.h}</span>
-                </button>
-              ))}
+            <input className="input mb-2" placeholder="Buscar (ex.: pia, cama, tanque)…" value={buscaMovel} onChange={(e) => setBuscaMovel(e.target.value)} />
+
+            <button
+              className={`mb-2 w-full ${movelPers.aberto ? "btn" : "btn-ghost"}`}
+              onClick={() => setMovelPers({ ...movelPers, aberto: !movelPers.aberto })}
+            >
+              {movelPers.aberto ? "Fechar" : "✎ Móvel com medida personalizada"}
+            </button>
+            {movelPers.aberto && (
+              <form
+                className="mb-3 space-y-2 rounded-xl border border-accent/40 bg-accent-soft/40 p-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = (v: string) => Math.max(0.1, Number(v.replace(",", ".")) || 0.1);
+                  adicionar({ nome: movelPers.nome.trim() || "Móvel", w: n(movelPers.w), h: n(movelPers.h), cor: movelPers.cor });
+                  setMovelPers({ ...movelPers, nome: "" });
+                }}
+              >
+                <input className="input" placeholder="Nome (ex.: Aparador sob medida)" value={movelPers.nome} onChange={(e) => setMovelPers({ ...movelPers, nome: e.target.value })} />
+                <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                  <div>
+                    <label className="label">Largura</label>
+                    <input className="input" inputMode="decimal" value={movelPers.w} onChange={(e) => setMovelPers({ ...movelPers, w: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Profund.</label>
+                    <input className="input" inputMode="decimal" value={movelPers.h} onChange={(e) => setMovelPers({ ...movelPers, h: e.target.value })} />
+                  </div>
+                  <input type="color" className="h-10 w-10 rounded-lg" value={movelPers.cor} onChange={(e) => setMovelPers({ ...movelPers, cor: e.target.value })} title="Cor" />
+                </div>
+                <button className="btn w-full" type="submit">Adicionar na planta</button>
+              </form>
+            )}
+
+            <div className="max-h-[45vh] space-y-1 overflow-y-auto pr-1">
+              {BIBLIOTECA.map((grupo) => {
+                const termo = buscaMovel.trim().toLowerCase();
+                const itens = termo ? grupo.itens.filter((b) => `${b.nome} ${grupo.categoria}`.toLowerCase().includes(termo)) : grupo.itens;
+                if (itens.length === 0) return null;
+                return (
+                  <details key={grupo.categoria} open={Boolean(termo)} className="group">
+                    <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-bg">
+                      {grupo.categoria}
+                      <span className="text-xs text-muted">{itens.length} <span className="inline-block transition group-open:rotate-90">›</span></span>
+                    </summary>
+                    {itens.map((b) => (
+                      <button key={b.nome} onClick={() => adicionar(b)} className="flex w-full items-center justify-between rounded-lg py-1.5 pl-4 pr-2 text-left text-sm hover:bg-accent-soft">
+                        <span className="flex items-center gap-2">
+                          <span className="h-3 w-3 shrink-0 rounded-sm border border-line" style={{ background: b.cor }} />
+                          {b.nome}
+                        </span>
+                        <span className="shrink-0 pl-2 text-xs text-muted">{b.w}×{b.h}</span>
+                      </button>
+                    ))}
+                  </details>
+                );
+              })}
+              {buscaMovel.trim() && BIBLIOTECA.every((g) => !g.itens.some((b) => `${b.nome} ${g.categoria}`.toLowerCase().includes(buscaMovel.trim().toLowerCase()))) && (
+                <p className="px-2 text-sm text-muted">Nada encontrado. Use o móvel com medida personalizada.</p>
+              )}
             </div>
           </div>
         </div>
 
         <div className="card p-3">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <button
+              className={`rounded-full border px-3 py-1 text-sm ${mostrarFolgas ? "border-accent bg-accent-soft text-accent" : "border-line"}`}
+              onClick={() => setMostrarFolgas(!mostrarFolgas)}
+              title="Ao selecionar um móvel, mostra a distância livre até a parede ou outro móvel"
+            >
+              ↔ Medidas livres {mostrarFolgas ? "ligadas" : "desligadas"}
+            </button>
+            <button
+              className={`rounded-full border px-3 py-1 text-sm ${regua ? "border-[#2563a8] bg-[#e8f0fa] text-[#2563a8]" : "border-line"}`}
+              onClick={() => { setRegua(!regua); setSel(null); }}
+            >
+              📏 Régua {regua ? "(arraste na planta)" : ""}
+            </button>
+            {mostrarFolgas && (
+              <span className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                <span className="inline-block h-2 w-2 rounded-full bg-danger" /> menos de 60 cm
+                <span className="inline-block h-2 w-2 rounded-full bg-warn" /> 60–80 cm
+                <span className="inline-block h-2 w-2 rounded-full bg-ok" /> 80 cm ou mais
+              </span>
+            )}
+          </div>
           <PlantaSvg
+            mostrarFolgas={mostrarFolgas}
+            regua={regua}
             planta={planta}
             selecionado={sel}
             onSelecionar={setSel}
             onMover={(id, x, y) => mudarMovel(id, { x, y })}
             onMoverAbertura={(id, parede, posicao) => mudarAbertura(id, { parede, posicao })}
+            editarCantos={editandoCantos}
+            cantoSelecionado={cantoSel}
+            onSelecionarCanto={setCantoSel}
+            onMoverCanto={(i, p) => setPlanta((pl) => aplicarCantos(pl, cantos(pl).map((q, k) => (k === i ? p : q)), "personalizado"))}
+            onInserirCanto={(depoisDe, p) => {
+              setPlanta((pl) => {
+                const pts = [...cantos(pl)];
+                pts.splice(depoisDe + 1, 0, p);
+                return aplicarCantos(pl, pts, "personalizado");
+              });
+              setCantoSel(depoisDe + 1);
+            }}
           />
+          {editandoCantos && (
+            <p className="mt-2 text-center text-xs text-muted">Modo de edição dos cantos: os móveis ficam travados até você clicar em “Concluir”.</p>
+          )}
         </div>
 
         <div className="card space-y-3">
@@ -234,12 +499,12 @@ function Editor() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="label">Parede</label>
-                  <select className="input" value={abertura.parede} onChange={(e) => mudarAbertura(abertura.id, { parede: e.target.value as Parede })}>
-                    {Object.entries(PAREDE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  <select className="input" value={abertura.parede} onChange={(e) => mudarAbertura(abertura.id, { parede: Number(e.target.value) })}>
+                    {listaParedes.map((par) => <option key={par.i} value={par.i}>{letraParede(par.i)} ({par.comprimento.toFixed(2)} m)</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="label" title="Distância do canto esquerdo (paredes superior/inferior) ou do canto de cima (paredes laterais)">Do canto (m)</label>
+                  <label className="label" title="Distância a partir do início da parede (sentido horário)">Do início (m)</label>
                   <input className="input" type="number" step="0.05" min="0" value={abertura.posicao} onChange={(e) => mudarAbertura(abertura.id, { posicao: Number(e.target.value) || 0 })} />
                 </div>
                 <div>
@@ -257,11 +522,13 @@ function Editor() {
                   </div>
                 )}
               </div>
-              {abertura.tipo === "porta" && (
+              {temGiro(abertura) && (
                 <div className="flex flex-wrap gap-2">
-                  <button className="btn-ghost" onClick={() => mudarAbertura(abertura.id, { dobradica: abertura.dobradica === "esquerda" ? "direita" : "esquerda" })}>
-                    ⇋ Inverter dobradiça
-                  </button>
+                  {abertura.tipo === "porta" && (
+                    <button className="btn-ghost" onClick={() => mudarAbertura(abertura.id, { dobradica: abertura.dobradica === "esquerda" ? "direita" : "esquerda" })}>
+                      ⇋ Inverter dobradiça
+                    </button>
+                  )}
                   <button className="btn-ghost" onClick={() => mudarAbertura(abertura.id, { abreParaFora: !abertura.abreParaFora })}>
                     {abertura.abreParaFora ? "Abrir para dentro" : "Abrir para fora"}
                   </button>
@@ -281,6 +548,22 @@ function Editor() {
           ) : movel ? (
             <>
               <div className="label">Móvel selecionado</div>
+              {(() => {
+                const folgas = folgasMovel(planta, movel);
+                if (folgas.length === 0) return null;
+                const cor = { apertado: "text-danger", justo: "text-warn", bom: "text-ok" };
+                return (
+                  <div className="rounded-xl bg-bg p-2 text-xs">
+                    <div className="mb-1 font-medium text-muted">Espaço livre ao redor</div>
+                    {folgas.map((f) => (
+                      <div key={f.direcao} className="flex justify-between gap-2">
+                        <span>{DIRECAO_LABEL[f.direcao]} <span className="text-muted">até {f.ate_o_que}</span></span>
+                        <b className={cor[nivelFolga(f.distancia)]}>{Math.round(f.distancia * 100)} cm</b>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               <input className="input" value={movel.nome} onChange={(e) => mudarMovel(movel.id, { nome: e.target.value })} />
               <div className="grid grid-cols-2 gap-2">
                 <div>

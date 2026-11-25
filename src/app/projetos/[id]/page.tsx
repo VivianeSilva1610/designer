@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import PlantaSvg from "@/components/PlantaSvg";
 import SeletorAmbientes from "@/components/SeletorAmbientes";
+import { areaPlanta } from "@/lib/geometria";
 import { useProjetos } from "@/lib/store";
 import {
   ESTILOS,
@@ -137,7 +138,13 @@ export default function DetalheProjeto() {
       </div>
 
       <div className="card space-y-4">
-        <h2 className="font-serif text-xl">Ambientes</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-serif text-xl">Ambientes</h2>
+          <div className="flex flex-wrap gap-2 print:hidden">
+            <Link href={`/projetos/${p.id}/casa`} className="btn-ghost">⊞ Montar a casa</Link>
+            <Link href={`/projetos/${p.id}/casa?vista=3d`} className="btn">◈ Ver em 3D</Link>
+          </div>
+        </div>
         <div className="print:hidden">
           <SeletorAmbientes
             ambientes={p.ambientes}
@@ -161,7 +168,7 @@ export default function DetalheProjeto() {
                       <div className="font-medium">{a.nome}</div>
                       <div className="text-xs text-muted">
                         {n} {n === 1 ? "item" : "itens"} · {brl(totalAmbiente(p, a.id))}
-                        {a.planta && ` · ${(a.planta.largura * a.planta.comprimento).toFixed(1)} m²`}
+                        {a.planta && ` · ${areaPlanta(a.planta).toFixed(1)} m²`}
                       </div>
                     </div>
                     <div className="flex gap-1 print:hidden">

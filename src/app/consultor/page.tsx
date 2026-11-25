@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "@/components/Markdown";
 import { reduzirImagem, useProjetos } from "@/lib/store";
-import { brl, descreverAbertura, totalItens } from "@/lib/types";
+import { descreverAbertura, descreverFormato } from "@/lib/geometria";
+import { brl, totalItens } from "@/lib/types";
 
 interface Mensagem {
   role: "user" | "assistant";
@@ -41,8 +42,8 @@ export default function Consultor() {
         .join("\n");
     const ambientes = p.ambientes.map((a) => {
       const planta = a.planta
-        ? `\n  Planta: ${a.planta.largura} x ${a.planta.comprimento} m. Móveis: ${a.planta.moveis.map((m) => `${m.nome} ${m.w}x${m.h}m em (${m.x}, ${m.y})`).join("; ") || "nenhum"}` +
-          `\n  Portas e janelas: ${(a.planta.aberturas ?? []).map(descreverAbertura).join("; ") || "não marcadas"}`
+        ? `\n  Planta: ${descreverFormato(a.planta)}. Móveis: ${a.planta.moveis.map((m) => `${m.nome} ${m.w}x${m.h}m em (${m.x}, ${m.y})`).join("; ") || "nenhum"}` +
+          `\n  Portas e janelas: ${(a.planta.aberturas ?? []).map((ab) => descreverAbertura(a.planta!, ab)).join("; ") || "não marcadas"}`
         : "";
       const itens = listaItens(a.id);
       return `### ${a.nome} (${a.tipo})${planta}${itens ? `\n  Itens:\n${itens}` : ""}`;

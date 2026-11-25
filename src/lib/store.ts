@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { migrarPlanta } from "./geometria";
 import { novoId, type Planta, type Projeto } from "./types";
 
 // Armazenamento local (no navegador). Numa próxima fase, trocamos por um banco
@@ -13,7 +14,15 @@ const VAZIO: Projeto[] = [];
 /** Projetos da primeira versão tinham um único "ambiente" e uma "planta". */
 type ProjetoAntigo = Projeto & { ambiente?: string; planta?: Planta };
 
-function migrar(p: ProjetoAntigo): Projeto {
+function migrar(antigo: ProjetoAntigo): Projeto {
+  const p = migrarAmbientes(antigo);
+  return {
+    ...p,
+    ambientes: p.ambientes.map((a) => (a.planta ? { ...a, planta: migrarPlanta(a.planta) } : a)),
+  };
+}
+
+function migrarAmbientes(p: ProjetoAntigo): Projeto {
   if (Array.isArray(p.ambientes)) return p;
   const { ambiente, planta, ...resto } = p;
   const amb = ambiente ? [{ id: novoId(), nome: ambiente, tipo: ambiente, planta }] : [];

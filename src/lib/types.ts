@@ -76,28 +76,32 @@ export interface Movel {
   cor: string;
 }
 
-export type TipoAbertura = "porta" | "porta_correr" | "janela" | "porta_balcao";
-export type Parede = "norte" | "leste" | "sul" | "oeste";
+export type TipoAbertura = "porta" | "porta_dupla" | "porta_correr" | "porta_balcao" | "janela" | "vao";
 
 export const TIPO_ABERTURA_LABEL: Record<TipoAbertura, string> = {
   porta: "Porta de abrir",
+  porta_dupla: "Porta dupla (2 folhas)",
   porta_correr: "Porta de correr",
-  janela: "Janela",
   porta_balcao: "Porta-balcão (vidro de correr)",
+  janela: "Janela",
+  vao: "Vão livre (passagem sem porta)",
 };
 
-export const PAREDE_LABEL: Record<Parede, string> = {
-  norte: "Superior",
-  leste: "Direita",
-  sul: "Inferior",
-  oeste: "Esquerda",
-};
+/** Portas que giram (precisam de área livre para abrir). */
+export function temGiro(a: { tipo: TipoAbertura }) {
+  return a.tipo === "porta" || a.tipo === "porta_dupla";
+}
+
+/** Profundidade varrida pela folha: largura inteira, ou metade na porta dupla. */
+export function raioGiro(a: { tipo: TipoAbertura; largura: number }) {
+  return a.tipo === "porta_dupla" ? a.largura / 2 : a.largura;
+}
 
 export interface Abertura {
   id: string;
   tipo: TipoAbertura;
-  parede: Parede;
-  posicao: number; // metros, do canto esquerdo (paredes horizontais) ou superior (verticais)
+  parede: number; // índice da parede (0 = Parede A, 1 = B…), na ordem dos cantos do cômodo
+  posicao: number; // metros, a partir do canto onde a parede começa
   largura: number;
   altura: number; // metros
   peitoril: number; // altura do piso até a base (0 para portas)
@@ -105,58 +109,28 @@ export interface Abertura {
   abreParaFora: boolean; // só para porta de abrir
 }
 
-export interface Planta {
-  largura: number; // metros
+export interface Ponto {
+  x: number;
+  y: number;
+}
+
+export type FormatoComodo = "retangular" | "L" | "U" | "chanfrado" | "personalizado";
+
+/** Medidas do recorte usadas pelos formatos em L, U e chanfrado. */
+export interface Recorte {
+  largura: number;
   comprimento: number;
+  canto: "sd" | "se" | "id" | "ie"; // superior/inferior + direito/esquerdo
+}
+
+export interface Planta {
+  largura: number; // metros — largura total (caixa que envolve o cômodo)
+  comprimento: number; // metros — comprimento total
+  formato?: FormatoComodo; // ausente = retangular
+  recorte?: Recorte;
+  pontos?: Ponto[]; // cantos do cômodo em sentido horário; ausente = retângulo largura × comprimento
   moveis: Movel[];
   aberturas?: Abertura[]; // opcional: plantas antigas não tinham
-}
-
-export function comprimentoParede(planta: Planta, parede: Parede) {
-  return parede === "norte" || parede === "sul" ? planta.largura : planta.comprimento;
-}
-
-/** Retângulo (no piso) varrido pela folha de uma porta de abrir para dentro. */
-export function areaGiroPorta(planta: Planta, a: Abertura) {
-  const { largura: L, comprimento: C } = planta;
-  const w = a.largura;
-  switch (a.parede) {
-    case "norte": return { x: a.posicao, y: 0, w, h: w };
-    case "sul": return { x: a.posicao, y: C - w, w, h: w };
-    case "oeste": return { x: 0, y: a.posicao, w, h: w };
-    case "leste": return { x: L - w, y: a.posicao, w, h: w };
-  }
-}
-
-/** Lista conflitos: portas que batem em móveis e aberturas sobrepostas. */
-export function conflitosPlanta(planta: Planta): string[] {
-  const avisos: string[] = [];
-  const sobrepoe = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>
-    a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01 && a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01;
-  const aberturas = planta.aberturas ?? [];
-  for (const a of aberturas) {
-    if (a.tipo !== "porta" || a.abreParaFora) continue;
-    const giro = areaGiroPorta(planta, a);
-    for (const m of planta.moveis) {
-      if (/tapete/i.test(m.nome)) continue;
-      if (sobrepoe(giro, m)) avisos.push(`A porta (${PAREDE_LABEL[a.parede].toLowerCase()}) bate em “${m.nome}”.`);
-    }
-  }
-  for (let i = 0; i < aberturas.length; i++) {
-    for (let j = i + 1; j < aberturas.length; j++) {
-      const a = aberturas[i], b = aberturas[j];
-      if (a.parede === b.parede && a.posicao < b.posicao + b.largura && b.posicao < a.posicao + a.largura) {
-        avisos.push(`${TIPO_ABERTURA_LABEL[a.tipo]} e ${TIPO_ABERTURA_LABEL[b.tipo].toLowerCase()} estão sobrepostas na parede ${PAREDE_LABEL[a.parede].toLowerCase()}.`);
-      }
-    }
-  }
-  return avisos;
-}
-
-export function descreverAbertura(a: Abertura) {
-  const base = `${TIPO_ABERTURA_LABEL[a.tipo]} ${a.largura.toFixed(2)} m na parede ${PAREDE_LABEL[a.parede].toLowerCase()} (a ${a.posicao.toFixed(2)} m do canto, altura ${a.altura.toFixed(2)} m`;
-  const extra = a.tipo === "janela" ? `, peitoril ${a.peitoril.toFixed(2)} m` : a.tipo === "porta" ? `, abre para ${a.abreParaFora ? "fora" : "dentro"}` : "";
-  return `${base}${extra})`;
 }
 
 export interface Cor {
@@ -170,11 +144,19 @@ export interface Moodboard {
   notas: string;
 }
 
+/** Onde o cômodo fica na planta da casa (em metros) e quanto está girado. */
+export interface PosicaoCasa {
+  x: number;
+  y: number;
+  rotacao: 0 | 90 | 180 | 270;
+}
+
 export interface Ambiente {
   id: string;
   nome: string; // ex.: "Quarto infantil 2" — pode ser renomeado
   tipo: string; // ex.: "Quarto infantil"
   planta?: Planta;
+  posicaoCasa?: PosicaoCasa;
 }
 
 export interface Projeto {
@@ -190,6 +172,7 @@ export interface Projeto {
   notas: string;
   itens: Item[];
   moodboard?: Moodboard;
+  peDireito?: number; // altura do teto em metros (padrão 2,70)
   criadoEm: string;
 }
 

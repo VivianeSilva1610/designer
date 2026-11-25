@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { reduzirImagem, useProjetos } from "@/lib/store";
 import type { Moodboard } from "@/lib/types";
 
@@ -19,14 +19,14 @@ function Editor() {
   const [aviso, setAviso] = useState("");
 
   const projeto = projetos.find((p) => p.id === projetoId);
-  useEffect(() => {
-    if (projeto) {
-      setBoard(projeto.moodboard ?? VAZIO);
-      const ambientes = projeto.ambientes.map((a) => a.nome).join(", ") || "projeto residencial";
-      setDescricao(`${ambientes}; estilo ${projeto.estilo}. ${projeto.notas}`.trim());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projetoId, projeto?.id]);
+  // ao escolher outro projeto, carrega o moodboard dele (ajuste feito na renderização)
+  const [projetoVisto, setProjetoVisto] = useState<string | undefined>(undefined);
+  if (projeto && projeto.id !== projetoVisto) {
+    setProjetoVisto(projeto.id);
+    setBoard(projeto.moodboard ?? VAZIO);
+    const ambientes = projeto.ambientes.map((a) => a.nome).join(", ") || "projeto residencial";
+    setDescricao(`${ambientes}; estilo ${projeto.estilo}. ${projeto.notas}`.trim());
+  }
 
   async function adicionarImagens(arquivos: FileList | null) {
     if (!arquivos) return;
