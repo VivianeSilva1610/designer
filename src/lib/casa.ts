@@ -1,3 +1,4 @@
+import { medidaTV, polegadasDaTV } from "./biblioteca";
 import { caixa, cantos, paredes } from "./geometria";
 import type { Ambiente, Movel, Planta, PosicaoCasa, Ponto, Projeto, TipoAbertura } from "./types";
 
@@ -146,6 +147,12 @@ export function moveisDaCasa(p: Projeto, pos: Record<string, PosicaoCasa>): Move
 /** Altura típica (m) de cada peça, pelo nome. */
 export function alturaMovel(nome: string): { altura: number; vidro?: boolean; base?: number } {
   const n = nome.toLowerCase();
+  // TV: tela presa à parede, com o centro a ~1,05 m do piso (altura boa para quem está sentado)
+  const pol = polegadasDaTV(nome);
+  if (pol) {
+    const { altura } = medidaTV(pol);
+    return { altura, base: +(1.05 - altura / 2).toFixed(2) };
+  }
   const regras: [RegExp, number, boolean?][] = [
     [/tapete/, 0.01],
     [/box/, 2.0, true],

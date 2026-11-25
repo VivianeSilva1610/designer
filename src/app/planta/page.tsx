@@ -5,7 +5,7 @@ import { Suspense, useState, useSyncExternalStore } from "react";
 import PlantaSvg from "@/components/PlantaSvg";
 import { useProjetos } from "@/lib/store";
 import EditorFormato from "@/components/EditorFormato";
-import { BIBLIOTECA, type ItemBiblioteca } from "@/lib/biblioteca";
+import { BIBLIOTECA, medidaTV, polegadasDaTV, type ItemBiblioteca } from "@/lib/biblioteca";
 import {
   DIRECAO_LABEL,
   aplicarCantos,
@@ -565,6 +565,37 @@ function Editor() {
                 );
               })()}
               <input className="input" value={movel.nome} onChange={(e) => mudarMovel(movel.id, { nome: e.target.value })} />
+              {(() => {
+                const pol = polegadasDaTV(movel.nome);
+                if (!pol) return null;
+                // distância recomendada para TVs 4K: ~1,2 a 1,6 vezes a diagonal
+                const diagonal = pol * 0.0254;
+                const deitada = movel.h > movel.w; // girada 90°: a largura da tela está em "h"
+                return (
+                  <div className="space-y-2 rounded-xl bg-bg p-2">
+                    <label className="label">Tamanho da TV (polegadas)</label>
+                    <div className="flex gap-1">
+                      {[43, 50, 55, 60, 65].map((n) => (
+                        <button
+                          key={n}
+                          className={`flex-1 rounded-lg border px-1 py-1 text-xs ${n === pol ? "border-accent bg-accent-soft text-accent" : "border-line"}`}
+                          onClick={() => {
+                            const largura = medidaTV(n).largura;
+                            mudarMovel(movel.id, { nome: `TV ${n}"`, ...(deitada ? { h: largura } : { w: largura }) });
+                          }}
+                        >
+                          {n}&quot;
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted">
+                      Tela de {medidaTV(pol).largura.toFixed(2).replace(".", ",")} × {medidaTV(pol).altura.toFixed(2).replace(".", ",")} m.
+                      Distância ideal do sofá: <b className="text-ink">{(diagonal * 1.2).toFixed(1).replace(".", ",")} a {(diagonal * 1.6).toFixed(1).replace(".", ",")} m</b>.
+                      Encoste na parede; no 3D ela aparece fixada com o centro a ~1,05 m do piso.
+                    </p>
+                  </div>
+                );
+              })()}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="label">Largura (m)</label>

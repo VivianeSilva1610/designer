@@ -126,7 +126,10 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
     const pontosCentro: Record<string, Ponto> = {};
     // retângulos (na casa) dos móveis em que não dá para "ficar em pé"
     const ocupados = moveisDaCasa(projeto, posicoes)
-      .filter(({ movel }) => alturaMovel(movel.nome).altura > 0.05)
+      .filter(({ movel }) => {
+        const { altura, base = 0 } = alturaMovel(movel.nome);
+        return altura > 0.05 && base < 0.3; // TV na parede não ocupa o piso
+      })
       .map(({ movel, centro: c, rotacao }) => {
         const deitado = rotacao % 180 !== 0;
         const hw = (deitado ? movel.h : movel.w) / 2 + 0.2, hh = (deitado ? movel.w : movel.h) / 2 + 0.2;
@@ -247,11 +250,11 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
     /* ── móveis ── */
     const matContorno = new THREE.LineBasicMaterial({ color: "#5b5047", transparent: true, opacity: 0.35 });
     for (const { movel: m, centro: c, rotacao } of moveisDaCasa(projeto, posicoes)) {
-      const { altura, vidro } = alturaMovel(m.nome);
+      const { altura, vidro, base = 0 } = alturaMovel(m.nome);
       const geo = new THREE.BoxGeometry(m.w, altura, m.h);
       const mat = new THREE.MeshStandardMaterial({ color: m.cor, roughness: 0.75, ...(vidro ? { transparent: true, opacity: 0.25 } : {}) });
       const malha = new THREE.Mesh(geo, mat);
-      malha.position.set(c.x, altura / 2 + (altura < 0.02 ? 0.003 : 0), c.y);
+      malha.position.set(c.x, base + altura / 2 + (altura < 0.02 ? 0.003 : 0), c.y);
       malha.rotation.y = (-rotacao * Math.PI) / 180;
       malha.castShadow = !vidro && altura > 0.05;
       malha.receiveShadow = true;

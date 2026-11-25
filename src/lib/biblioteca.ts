@@ -6,6 +6,27 @@ export interface ItemBiblioteca {
   cor: string;
 }
 
+/**
+ * Medidas de uma TV 16:9 a partir da diagonal em polegadas (com ~1,5 cm de borda).
+ * largura = d × 16/√337 × 2,54 cm; altura = d × 9/√337 × 2,54 cm.
+ */
+export function medidaTV(polegadas: number) {
+  const d = polegadas * 0.0254;
+  const largura = (d * 16) / Math.sqrt(337) + 0.03;
+  const altura = (d * 9) / Math.sqrt(337) + 0.03;
+  return { largura: +largura.toFixed(2), altura: +altura.toFixed(2) };
+}
+
+/** Polegadas escritas no nome da TV (ex.: `TV 55"`), ou null se não for uma TV. */
+export function polegadasDaTV(nome: string): number | null {
+  if (!/\btv\b/i.test(nome) || /rack|painel/i.test(nome)) return null;
+  const m = /(\d{2,3})\s*(?:"|”|pol)/i.exec(nome);
+  return m ? Number(m[1]) : 50;
+}
+
+export const COR_TV = "#1f1f22";
+const tv = (pol: number): ItemBiblioteca => ({ nome: `TV ${pol}"`, w: medidaTV(pol).largura, h: 0.08, cor: COR_TV });
+
 const MADEIRA = "#b8987a";
 const MADEIRA_ESCURA = "#8d7560";
 const ESTOFADO = "#d9c3a5";
@@ -26,6 +47,10 @@ export const BIBLIOTECA: { categoria: string; itens: ItemBiblioteca[] }[] = [
       { nome: "Mesa de centro", w: 1.0, h: 0.6, cor: MADEIRA },
       { nome: "Mesa lateral", w: 0.45, h: 0.45, cor: MADEIRA },
       { nome: "Rack / painel TV", w: 1.8, h: 0.45, cor: "#9c8169" },
+      tv(43),
+      tv(50),
+      tv(55),
+      tv(60),
       { nome: "Tapete", w: 2.0, h: 1.4, cor: "#eadfcf" },
       { nome: "Estante", w: 1.0, h: 0.35, cor: MADEIRA_ESCURA },
     ],
@@ -91,6 +116,7 @@ export const BIBLIOTECA: { categoria: string; itens: ItemBiblioteca[] }[] = [
       { nome: "Cama solteiro", w: 0.88, h: 1.88, cor: CAMA },
       { nome: "Berço", w: 0.7, h: 1.3, cor: CAMA },
       { nome: "Criado-mudo", w: 0.5, h: 0.4, cor: "#9c8169" },
+      tv(43),
       { nome: "Guarda-roupa", w: 2.0, h: 0.6, cor: MADEIRA_ESCURA },
       { nome: "Cômoda", w: 1.2, h: 0.5, cor: MADEIRA_ESCURA },
       { nome: "Penteadeira", w: 1.0, h: 0.45, cor: MADEIRA },
