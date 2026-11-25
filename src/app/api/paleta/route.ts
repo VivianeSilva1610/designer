@@ -1,6 +1,7 @@
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { MODELO, anthropic, mensagemDeErro } from "@/lib/anthropic";
+import { requisicaoAutorizada, respostaNaoAutorizada } from "@/lib/sessao";
 import { INSTRUCOES_DESIGNER } from "@/lib/designer-interiores";
 
 export const maxDuration = 60;
@@ -11,6 +12,7 @@ const Paleta = z.object({
 });
 
 export async function POST(req: Request) {
+  if (!requisicaoAutorizada(req)) return respostaNaoAutorizada();
   try {
     const { descricao } = (await req.json()) as { descricao: string };
     const resposta = await anthropic.messages.parse({

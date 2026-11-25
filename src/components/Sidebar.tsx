@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const LINKS = [
   { href: "/", label: "Início", icone: "◧" },
@@ -16,6 +16,22 @@ const LINKS = [
 export default function Sidebar() {
   const caminho = usePathname();
   const [aberto, setAberto] = useState(false);
+  const [protegido, setProtegido] = useState(false);
+  const roteador = useRouter();
+
+  useEffect(() => {
+    fetch("/api/login")
+      .then((r) => r.json())
+      .then((d: { estado: string }) => setProtegido(d.estado === "protegido"))
+      .catch(() => {});
+  }, []);
+
+  async function sair() {
+    await fetch("/api/login", { method: "DELETE" });
+    roteador.replace("/login");
+  }
+
+  if (caminho === "/login") return null;
 
   const ativo = (href: string) => (href === "/" ? caminho === "/" : caminho.startsWith(href));
 
@@ -48,6 +64,12 @@ export default function Sidebar() {
               {l.label}
             </Link>
           ))}
+          {protegido && (
+            <button onClick={sair} className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-muted transition hover:bg-bg hover:text-ink">
+              <span className="w-5 text-center">⎋</span>
+              Sair
+            </button>
+          )}
         </nav>
       </aside>
     </>

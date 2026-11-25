@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { MODELO, anthropic, blocoImagem, mensagemDeErro } from "@/lib/anthropic";
+import { requisicaoAutorizada, respostaNaoAutorizada } from "@/lib/sessao";
 import { instrucoesDoConsultor } from "@/lib/designer-interiores";
 
 export const maxDuration = 300;
@@ -11,6 +12,7 @@ interface MensagemCliente {
 }
 
 export async function POST(req: Request) {
+  if (!requisicaoAutorizada(req)) return respostaNaoAutorizada();
   let mensagens: MensagemCliente[];
   let contexto = "";
   try {
