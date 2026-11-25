@@ -180,7 +180,7 @@ export function alturaMovel(nome: string): { altura: number; vidro?: boolean; ba
     [/criado|mesa lateral/, 0.55],
     [/rack/, 0.5],
     [/mesa de centro/, 0.4],
-    [/sofá|poltrona/, 0.85],
+    [/sofá|poltrona|chaise/, 0.85],
     [/cadeira/, 0.9],
     [/banqueta/, 0.75],
     [/pia|bancada|ilha|cooktop|fogão|lava-louças|tanque|máquina|secadora|churrasqueira/, 0.9],

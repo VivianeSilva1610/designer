@@ -93,6 +93,31 @@ export function removerConjunto(moveis: Movel[], id: string): Movel[] {
   return moveis.filter((q) => !ids.has(q.id));
 }
 
+/**
+ * Plantas antigas guardavam peças em L (balcão, sofá de canto, bancada de canto,
+ * mesa em L) como um retângulo cheio. Troca cada uma pelos dois trechos do L,
+ * no mesmo lugar, respeitando o tamanho e se estava girada 90°.
+ */
+export function separarPecasEmL(moveis: Movel[], biblioteca: ItemBiblioteca[]): Movel[] {
+  const emL = new Map(biblioteca.filter((i) => i.partes?.length === 2 && /\(L\)|em L/.test(i.nome)).map((i) => [i.nome, i]));
+  if (!moveis.some((m) => !m.grupo && emL.has(m.nome))) return moveis;
+  return moveis.flatMap((m) => {
+    const item = !m.grupo ? emL.get(m.nome) : undefined;
+    if (!item?.partes) return [m];
+    const girada = Math.abs(m.w - item.h) + Math.abs(m.h - item.w) < Math.abs(m.w - item.w) + Math.abs(m.h - item.h);
+    const grupo = novoId();
+    return item.partes.map((p) => {
+      if (!girada) {
+        const sx = m.w / item.w, sy = m.h / item.h;
+        return { id: novoId(), nome: p.nome, cor: m.cor, grupo, x: r2(m.x + p.dx * sx), y: r2(m.y + p.dy * sy), w: r2(p.w * sx), h: r2(p.h * sy) };
+      }
+      // girada 90° no sentido horário: (u, v) → (H − v, u), com H = altura original do item
+      const sx = m.w / item.h, sy = m.h / item.w;
+      return { id: novoId(), nome: p.nome, cor: m.cor, grupo, x: r2(m.x + (item.h - (p.dy + p.h)) * sx), y: r2(m.y + p.dx * sy), w: r2(p.h * sx), h: r2(p.w * sy) };
+    });
+  });
+}
+
 export function desagrupar(moveis: Movel[], id: string): Movel[] {
   const m = moveis.find((q) => q.id === id);
   if (!m?.grupo) return moveis;

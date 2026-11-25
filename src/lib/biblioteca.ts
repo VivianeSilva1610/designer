@@ -13,6 +13,7 @@ export function lugaresDoMovel(nome: string): number {
   const n = nome.toLowerCase();
   if (/cadeira escritório|cadeira de escritório/.test(n)) return 0;
   if (/banco booth|namoradeira/.test(n)) return 2;
+  if (/chaise/.test(n)) return 1;
   if (/sofá 3|sofá de canto/.test(n)) return 3;
   if (/sofá/.test(n)) return 2;
   if (/cadeira|banqueta|poltrona/.test(n)) return 1;
@@ -62,7 +63,13 @@ export const BIBLIOTECA: { categoria: string; itens: ItemBiblioteca[] }[] = [
     itens: [
       { nome: "Sofá 3 lugares", w: 2.1, h: 0.9, cor: ESTOFADO },
       { nome: "Sofá 2 lugares", w: 1.6, h: 0.9, cor: ESTOFADO },
-      { nome: "Sofá de canto (L)", w: 2.6, h: 1.6, cor: ESTOFADO },
+      {
+        nome: "Sofá de canto (L)", w: 2.6, h: 1.6, cor: ESTOFADO,
+        partes: [
+          { nome: "Sofá de canto (L)", w: 2.6, h: 0.9, cor: ESTOFADO, dx: 0, dy: 0 },
+          { nome: "Chaise do sofá", w: 0.9, h: 0.7, cor: ESTOFADO, dx: 1.7, dy: 0.9 },
+        ],
+      },
       { nome: "Poltrona", w: 0.8, h: 0.8, cor: "#c9a98a" },
       { nome: "Mesa de centro", w: 1.0, h: 0.6, cor: MADEIRA },
       { nome: "Mesa lateral", w: 0.45, h: 0.45, cor: MADEIRA },
@@ -92,7 +99,13 @@ export const BIBLIOTECA: { categoria: string; itens: ItemBiblioteca[] }[] = [
       { nome: "Pia de cozinha (cuba simples)", w: 1.2, h: 0.6, cor: PEDRA },
       { nome: "Pia de cozinha (cuba dupla)", w: 1.8, h: 0.6, cor: PEDRA },
       { nome: "Bancada cozinha", w: 2.4, h: 0.6, cor: PEDRA },
-      { nome: "Bancada de canto (L)", w: 1.2, h: 1.2, cor: PEDRA },
+      {
+        nome: "Bancada de canto (L)", w: 1.2, h: 1.2, cor: PEDRA,
+        partes: [
+          { nome: "Bancada de canto", w: 1.2, h: 0.6, cor: PEDRA, dx: 0, dy: 0 },
+          { nome: "Bancada de canto", w: 0.6, h: 0.6, cor: PEDRA, dx: 0.6, dy: 0.6 },
+        ],
+      },
       { nome: "Ilha / península", w: 1.8, h: 0.9, cor: PEDRA },
       { nome: "Cooktop", w: 0.6, h: 0.5, cor: "#3a3633" },
       { nome: "Fogão 4 bocas", w: 0.6, h: 0.6, cor: INOX },
@@ -154,7 +167,13 @@ export const BIBLIOTECA: { categoria: string; itens: ItemBiblioteca[] }[] = [
       },
       // peças avulsas
       { nome: "Balcão de bar", w: 3.0, h: 0.6, cor: "#5b4636" },
-      { nome: "Balcão de bar em L", w: 2.4, h: 1.6, cor: "#5b4636" },
+      {
+        nome: "Balcão de bar em L", w: 2.4, h: 1.6, cor: "#5b4636",
+        partes: [
+          { nome: "Balcão de bar", w: 2.4, h: 0.6, cor: "#5b4636", dx: 0, dy: 0 },
+          { nome: "Balcão de bar", w: 0.6, h: 1.0, cor: "#5b4636", dx: 1.8, dy: 0.6 },
+        ],
+      },
       { nome: "Bancada de apoio (back bar)", w: 3.0, h: 0.5, cor: MADEIRA_ESCURA },
       { nome: "Adega / expositor de bebidas", w: 0.9, h: 0.6, cor: "#3a3633" },
       { nome: "Cervejeira / chopeira", w: 0.7, h: 0.7, cor: INOX_IND },
@@ -217,7 +236,13 @@ export const BIBLIOTECA: { categoria: string; itens: ItemBiblioteca[] }[] = [
     categoria: "Escritório",
     itens: [
       { nome: "Escrivaninha", w: 1.2, h: 0.6, cor: MADEIRA },
-      { nome: "Mesa em L", w: 1.6, h: 1.4, cor: MADEIRA },
+      {
+        nome: "Mesa em L", w: 1.6, h: 1.4, cor: MADEIRA,
+        partes: [
+          { nome: "Mesa em L", w: 1.6, h: 0.6, cor: MADEIRA, dx: 0, dy: 0 },
+          { nome: "Mesa em L (retorno)", w: 0.6, h: 0.8, cor: MADEIRA, dx: 0, dy: 0.6 },
+        ],
+      },
       { nome: "Cadeira escritório", w: 0.6, h: 0.6, cor: "#a5b4a0" },
       { nome: "Arquivo / gaveteiro", w: 0.45, h: 0.55, cor: MADEIRA_ESCURA },
     ],

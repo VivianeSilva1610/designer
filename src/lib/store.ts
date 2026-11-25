@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { BIBLIOTECA } from "./biblioteca";
+import { separarPecasEmL } from "./conjuntos";
 import { migrarPlanta } from "./geometria";
+
+const TODOS_ITENS = BIBLIOTECA.flatMap((g) => g.itens);
 import { novoId, type Planta, type Projeto } from "./types";
 
 // Armazenamento local (no navegador). Numa próxima fase, trocamos por um banco
@@ -18,7 +22,11 @@ function migrar(antigo: ProjetoAntigo): Projeto {
   const p = migrarAmbientes(antigo);
   return {
     ...p,
-    ambientes: p.ambientes.map((a) => (a.planta ? { ...a, planta: migrarPlanta(a.planta) } : a)),
+    ambientes: p.ambientes.map((a) => {
+      if (!a.planta) return a;
+      const pl = migrarPlanta(a.planta);
+      return { ...a, planta: { ...pl, moveis: separarPecasEmL(pl.moveis, TODOS_ITENS) } };
+    }),
   };
 }
 
