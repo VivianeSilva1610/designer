@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Studio Interiores
 
-## Getting Started
+App web para designers de interiores, com IA (Claude).
 
-First, run the development server:
+## O que já faz
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+| Tela | Para quê |
+|---|---|
+| **Início** | Resumo: projetos ativos, orçamento total, valor já especificado |
+| **Projetos** | Clientes, ambiente, estilo, prazo, status, briefing, **lista de compras com orçamento** (especificado × comprado × saldo) e impressão da proposta |
+| **Análise de ambiente** | Envie a foto de um cômodo → diagnóstico, paleta de cores, lista de compras com preços estimados, iluminação e layout. Envia tudo para um projeto com 1 clique |
+| **Consultor IA** | Chat com um designer sênior virtual; aceita fotos e pode usar os dados de um projeto como contexto |
+| **Planta baixa** | Cômodo em escala, biblioteca de móveis com medidas reais, arrastar, girar, duplicar; salva no projeto |
+| **Moodboard** | Paleta gerada por IA ou manual, imagens de referência, conceito; salva no projeto e imprime |
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Como rodar
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Instale as dependências (só na primeira vez):
+   ```
+   npm install
+   ```
+2. Copie `.env.local.example` para `.env.local` e coloque sua chave da API da Anthropic
+   (crie em https://platform.claude.com/settings/keys).
+3. Inicie:
+   ```
+   npm run dev
+   ```
+4. Abra http://localhost:3000
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Onde ficam os dados
 
-## Learn More
+Nesta primeira versão, os projetos ficam salvos **no navegador** (localStorage). Isso significa
+que cada computador/navegador tem seus próprios dados. As próximas fases planejadas:
 
-To learn more about Next.js, take a look at the following resources:
+- Login e banco de dados na nuvem (ex.: Supabase) — dados em qualquer dispositivo
+- Área do cliente final (link para ver moodboard, planta e aprovar a proposta)
+- Geração de imagens do ambiente redesenhado (requer um serviço de geração de imagens)
+- Planos de assinatura para vender o app a outros designers
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Estrutura
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/app/*` — telas
+- `src/app/api/*` — rotas do servidor que conversam com a IA (a chave nunca vai para o navegador)
+- `src/lib/designer-interiores.ts` — instruções da IA (o "jeito" do designer virtual)
+- `src/lib/store.ts` — armazenamento dos projetos

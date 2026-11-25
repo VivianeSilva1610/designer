@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // evita o aviso de "múltiplos lockfiles" (há um package-lock.json em D:\Projetos)
+  outputFileTracingRoot: __dirname,
 };
 
 export default nextConfig;
