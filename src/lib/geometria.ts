@@ -235,7 +235,7 @@ export function nivelFolga(d: number): "apertado" | "justo" | "bom" {
 }
 
 /** Peças que não ocupam o piso: tapete, marcação de giro PCD e coifa (fica no alto). */
-export const naoOcupaPiso = (nome: string) => /tapete|área de giro|coifa/i.test(nome);
+export const naoOcupaPiso = (nome: string) => /tapete|área de giro|coifa|gramado|caminho de pedra/i.test(nome);
 const ehTapete = (m: Movel) => naoOcupaPiso(m.nome);
 
 /** Distância de um ponto, numa direção, até a primeira parede. */
@@ -354,7 +354,7 @@ export function conflitosPlanta(p: Planta): string[] {
 }
 
 export function descreverAbertura(p: Planta, a: Abertura) {
-  const base = `${TIPO_ABERTURA_LABEL[a.tipo]} ${a.largura.toFixed(2)} m na parede ${letraParede(a.parede)} (a ${a.posicao.toFixed(2)} m do início da parede, altura ${a.altura.toFixed(2)} m`;
+  const base = `${TIPO_ABERTURA_LABEL[a.tipo]}${a.arco ? " em arco" : ""} ${a.largura.toFixed(2)} m na parede ${letraParede(a.parede)} (a ${a.posicao.toFixed(2)} m do início da parede, altura ${a.altura.toFixed(2)} m`;
   const extra = a.tipo === "janela" ? `, peitoril ${a.peitoril.toFixed(2)} m` : temGiro(a) ? `, abre para ${a.abreParaFora ? "fora" : "dentro"}` : "";
   return `${base}${extra})`;
 }

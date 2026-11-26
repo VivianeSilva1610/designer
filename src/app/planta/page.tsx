@@ -7,6 +7,7 @@ import { useProjetos } from "@/lib/store";
 import EditorFormato from "@/components/EditorFormato";
 import { BIBLIOTECA, lugaresDoMovel, medidaTV, polegadasDaTV, type ItemBiblioteca } from "@/lib/biblioteca";
 import { desagrupar, duplicarConjunto, girarConjunto, membros, moverConjunto, pecasDoItem, removerConjunto, repetirEmGrade } from "@/lib/conjuntos";
+import { gerarArcada } from "@/lib/arquitetura";
 import {
   DIRECAO_LABEL,
   aplicarCantos,
@@ -37,6 +38,7 @@ interface ModeloAbertura {
   largura: number;
   altura: number;
   peitoril: number;
+  arco?: boolean;
 }
 
 const CHAVE_MODELOS = "studio-interiores:modelos-aberturas";
@@ -95,9 +97,12 @@ const BIBLIOTECA_ABERTURAS: ModeloAbertura[] = [
   { nome: "Janela alta (banheiro) 60 cm", tipo: "janela", largura: 0.6, altura: 0.6, peitoril: 1.6 },
   { nome: "Porta-balcão 2,00 m", tipo: "porta_balcao", largura: 2.0, altura: 2.2, peitoril: 0 },
   { nome: "Vão livre 1,00 m", tipo: "vao", largura: 1.0, altura: 2.1, peitoril: 0 },
+  { nome: "Janela em arco 0,90 m", tipo: "janela", largura: 0.9, altura: 1.8, peitoril: 1.0, arco: true },
+  { nome: "Porta em arco 1,00 m", tipo: "porta_dupla", largura: 1.0, altura: 2.5, peitoril: 0, arco: true },
+  { nome: "Arco (vão livre) 1,60 m", tipo: "vao", largura: 1.6, altura: 2.6, peitoril: 0, arco: true },
 ];
 
-const FORM_INICIAL = { tipo: "porta" as TipoAbertura, largura: "0.80", altura: "2.10", peitoril: "0", parede: "auto", posicao: "", nome: "", salvar: false };
+const FORM_INICIAL = { tipo: "porta" as TipoAbertura, largura: "0.80", altura: "2.10", peitoril: "0", parede: "auto", posicao: "", nome: "", salvar: false, arco: false };
 
 const PADRAO: Planta = { largura: 4, comprimento: 5, moveis: [] };
 
@@ -119,6 +124,7 @@ function Editor() {
   const [mostrarFolgas, setMostrarFolgas] = useState(true);
   const [regua, setRegua] = useState(false);
   const [grade, setGrade] = useState({ linhas: "3", colunas: "4", folga: "0.60" });
+  const [arcada, setArcada] = useState({ aberto: false, parede: "auto", largura: "1.60", pilar: "0.40", altura: "2.60", erro: "" });
   const [movelPers, setMovelPers] = useState<{ aberto: boolean; nome: string; w: string; h: string; cor: string }>({ aberto: false, nome: "", w: "1.00", h: "0.60", cor: "#b8987a" });
 
   const projeto = projetos.find((p) => p.id === projetoId);
@@ -163,6 +169,7 @@ function Editor() {
       posicao: +Math.min(max, Math.max(0, posicaoEscolhida ?? max / 2)).toFixed(2),
       dobradica: "esquerda",
       abreParaFora: false,
+      ...(b.arco ? { arco: true } : {}),
     };
     setPlanta((p) => ({ ...p, aberturas: [...(p.aberturas ?? []), a] }));
     setSel(a.id);
@@ -175,8 +182,9 @@ function Editor() {
     const altura = num(form.altura);
     const peitoril = form.tipo === "janela" ? num(form.peitoril) : 0;
     if (!(largura >= 0.3 && largura <= 10)) return setErroForm("Largura deve ficar entre 0,30 e 10 m.");
-    if (!(altura >= 0.3 && altura <= 6)) return setErroForm("Altura deve ficar entre 0,30 e 6 m.");
-    if (!(peitoril >= 0 && peitoril <= 3)) return setErroForm("Peitoril deve ficar entre 0 e 3 m.");
+    if (!(altura >= 0.3 && altura <= 10)) return setErroForm("Altura deve ficar entre 0,30 e 10 m.");
+    if (!(peitoril >= 0 && peitoril <= 10)) return setErroForm("Peitoril deve ficar entre 0 e 10 m.");
+    if (form.arco && altura < largura / 2) return setErroForm("Para ter arco, a altura precisa ser pelo menos metade da largura.");
     const parede = form.parede === "auto" ? undefined : Number(form.parede);
     const maiorParede = Math.max(...listaParedes.map((par) => par.comprimento));
     if (largura > (parede !== undefined ? comprimentoParede(planta, parede) : maiorParede)) {
@@ -184,11 +192,12 @@ function Editor() {
     }
     setErroForm("");
     const modelo: ModeloAbertura = {
-      nome: form.nome.trim() || `${TIPO_ABERTURA_LABEL[form.tipo].split(" (")[0]} ${largura.toFixed(2).replace(".", ",")} m`,
+      nome: form.nome.trim() || `${TIPO_ABERTURA_LABEL[form.tipo].split(" (")[0]}${form.arco ? " em arco" : ""} ${largura.toFixed(2).replace(".", ",")} m`,
       tipo: form.tipo,
       largura,
       altura,
       peitoril,
+      ...(form.arco ? { arco: true } : {}),
     };
     adicionarAbertura(modelo, parede, form.posicao ? num(form.posicao) : undefined);
     if (form.salvar) {
@@ -197,6 +206,30 @@ function Editor() {
       gravarModelos(lista);
     }
     setForm({ ...form, nome: "", posicao: "", salvar: false });
+  }
+
+  /** Enche uma parede com arcos iguais separados por pilares (pórtico / galeria). */
+  function criarArcada(e: React.FormEvent) {
+    e.preventDefault();
+    const num = (v: string) => Number(v.replace(",", "."));
+    const largura = num(arcada.largura), pilar = num(arcada.pilar), altura = num(arcada.altura);
+    const erro = (msg: string) => setArcada({ ...arcada, erro: msg });
+    if (!(largura >= 0.5 && largura <= 6)) return erro("Largura do arco entre 0,50 e 6 m.");
+    if (!(pilar >= 0.15 && pilar <= 2)) return erro("Pilar entre 0,15 e 2 m.");
+    if (!(altura >= largura / 2 && altura <= 10)) return erro("A altura precisa ser pelo menos metade da largura do arco (e até 10 m).");
+    const maisLonga = [...listaParedes].sort((x, y) => y.comprimento - x.comprimento)[0];
+    const parede = arcada.parede === "auto" ? maisLonga?.i ?? 0 : Number(arcada.parede);
+    const posicoes = gerarArcada(comprimentoParede(planta, parede), largura, pilar);
+    if (!posicoes.length) return erro("Não cabe nenhum arco nessa parede com essas medidas.");
+    const naParede = (planta.aberturas ?? []).filter((a) => a.parede === parede);
+    if (naParede.length && !confirm(`A parede ${letraParede(parede)} já tem ${naParede.length} abertura(s). Substituir pelos arcos?`)) return;
+    const arcos: Abertura[] = posicoes.map((posicao) => ({
+      id: novoId(), tipo: "vao", parede, posicao, largura, altura, peitoril: 0, dobradica: "esquerda", abreParaFora: false, arco: true,
+    }));
+    setPlanta((p) => ({ ...p, aberturas: [...(p.aberturas ?? []).filter((a) => a.parede !== parede), ...arcos] }));
+    setArcada({ ...arcada, erro: "", aberto: false });
+    setSel(null);
+    setAviso(`${arcos.length} arcos criados na parede ${letraParede(parede)}. Veja em 3D com “Paredes inteiras”.`);
   }
 
   function mudarAbertura(id: string, campos: Partial<Abertura>) {
@@ -345,6 +378,10 @@ function Editor() {
                   </div>
                 </div>
                 <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={form.arco} onChange={(e) => setForm({ ...form, arco: e.target.checked })} />
+                  Topo em arco (⌒ arco romano)
+                </label>
+                <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={form.salvar} onChange={(e) => setForm({ ...form, salvar: e.target.checked })} />
                   Salvar em “Meus modelos”
                 </label>
@@ -356,13 +393,50 @@ function Editor() {
               </form>
             )}
 
+            <button className={`mb-2 w-full ${arcada.aberto ? "btn" : "btn-ghost"}`} onClick={() => setArcada({ ...arcada, aberto: !arcada.aberto, erro: "" })}>
+              {arcada.aberto ? "Fechar" : "🏛 Criar arcada (sequência de arcos)"}
+            </button>
+            {arcada.aberto && (
+              <form onSubmit={criarArcada} className="mb-3 space-y-2 rounded-xl border border-accent/40 bg-accent-soft/40 p-3">
+                <p className="text-xs text-muted">Enche a parede com arcos iguais separados por pilares, como num pórtico ou claustro.</p>
+                <div>
+                  <label className="label">Parede</label>
+                  <select className="input" value={arcada.parede} onChange={(e) => setArcada({ ...arcada, parede: e.target.value })}>
+                    <option value="auto">A mais comprida</option>
+                    {listaParedes.map((par) => <option key={par.i} value={par.i}>{letraParede(par.i)} ({par.comprimento.toFixed(2)} m)</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="label">Arco (m)</label>
+                    <input className="input" inputMode="decimal" value={arcada.largura} onChange={(e) => setArcada({ ...arcada, largura: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Pilar (m)</label>
+                    <input className="input" inputMode="decimal" value={arcada.pilar} onChange={(e) => setArcada({ ...arcada, pilar: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Altura (m)</label>
+                    <input className="input" inputMode="decimal" value={arcada.altura} onChange={(e) => setArcada({ ...arcada, altura: e.target.value })} />
+                  </div>
+                </div>
+                {(() => {
+                  const par = arcada.parede === "auto" ? [...listaParedes].sort((x, y) => y.comprimento - x.comprimento)[0] : listaParedes.find((q) => q.i === Number(arcada.parede));
+                  const n = par ? gerarArcada(par.comprimento, Number(arcada.largura.replace(",", ".")), Number(arcada.pilar.replace(",", "."))).length : 0;
+                  return <div className="text-xs text-muted">{n > 0 ? `Cabem ${n} arcos nessa parede.` : "Não cabe nenhum arco com essas medidas."}</div>;
+                })()}
+                {arcada.erro && <div className="text-xs text-danger">{arcada.erro}</div>}
+                <button className="btn w-full" type="submit">Criar arcos</button>
+              </form>
+            )}
+
             {modelos.length > 0 && (
               <div className="mb-2">
                 <div className="mb-1 text-xs font-medium text-muted">Meus modelos</div>
                 {modelos.map((b) => (
                   <div key={b.nome} className="group flex items-center rounded-lg hover:bg-accent-soft">
                     <button onClick={() => adicionarAbertura(b)} className="flex flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm" title={`${b.largura} × ${b.altura} m`}>
-                      <span className="w-4 text-center text-muted">{ICONE[b.tipo]}</span>
+                      <span className="w-4 text-center text-muted">{b.arco ? "⌒" : ICONE[b.tipo]}</span>
                       {b.nome}
                     </button>
                     <button
@@ -385,7 +459,7 @@ function Editor() {
             <div className="space-y-1">
               {BIBLIOTECA_ABERTURAS.map((b) => (
                 <button key={b.nome} onClick={() => adicionarAbertura(b)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-accent-soft">
-                  <span className="w-4 text-center text-muted">{ICONE[b.tipo]}</span>
+                  <span className="w-4 text-center text-muted">{b.arco ? "⌒" : ICONE[b.tipo]}</span>
                   {b.nome}
                 </button>
               ))}
@@ -540,6 +614,14 @@ function Editor() {
                   </div>
                 )}
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(abertura.arco)}
+                  onChange={(e) => mudarAbertura(abertura.id, { arco: e.target.checked, ...(e.target.checked && abertura.altura < abertura.largura / 2 ? { altura: +(abertura.largura / 2).toFixed(2) } : {}) })}
+                />
+                Topo em arco (⌒)
+              </label>
               {temGiro(abertura) && (
                 <div className="flex flex-wrap gap-2">
                   {abertura.tipo === "porta" && (

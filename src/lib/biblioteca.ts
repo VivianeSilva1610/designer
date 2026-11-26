@@ -257,4 +257,20 @@ export const BIBLIOTECA: { categoria: string; itens: ItemBiblioteca[] }[] = [
       { nome: "Piano", w: 1.5, h: 0.6, cor: "#3a3633" },
     ],
   },
+  {
+    categoria: "Arquitetura e jardim (pátio)",
+    itens: [
+      { nome: "Coluna redonda Ø40", w: 0.4, h: 0.4, cor: "#e8e2d6" },
+      { nome: "Coluna redonda Ø30", w: 0.3, h: 0.3, cor: "#e8e2d6" },
+      { nome: "Pilar quadrado 40×40", w: 0.4, h: 0.4, cor: "#e4dccd" },
+      { nome: "Espelho d'água", w: 1.6, h: 6.0, cor: "#8fb8cc" },
+      { nome: "Gramado", w: 3.0, h: 5.0, cor: "#9dbb7a" },
+      { nome: "Caminho de pedra", w: 1.2, h: 4.0, cor: "#c9c3b8" },
+      { nome: "Canteiro", w: 0.6, h: 2.0, cor: "#7f9a5e" },
+      { nome: "Fonte", w: 1.2, h: 1.2, cor: "#b9c9cf" },
+      { nome: "Árvore", w: 2.0, h: 2.0, cor: "#6f8f4e" },
+      { nome: "Arbusto", w: 0.7, h: 0.7, cor: "#7fa05c" },
+      { nome: "Banco de jardim", w: 1.5, h: 0.5, cor: "#b5a48c" },
+    ],
+  },
 ];

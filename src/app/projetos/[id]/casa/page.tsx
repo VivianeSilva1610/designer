@@ -127,10 +127,11 @@ function Pagina() {
                 type="number"
                 step="0.05"
                 min="2"
-                max="6"
+                max="12"
                 value={p.peDireito ?? PE_DIREITO_PADRAO}
-                onChange={(e) => atualizar(p.id, (x) => ({ ...x, peDireito: Math.min(6, Math.max(2, Number(e.target.value) || PE_DIREITO_PADRAO)) }))}
+                onChange={(e) => atualizar(p.id, (x) => ({ ...x, peDireito: Math.min(12, Math.max(2, Number(e.target.value) || PE_DIREITO_PADRAO)) }))}
               />
+              <p className="text-xs text-muted">Para fachadas de dois andares (como um pátio de palácio), use 6 a 8 m e coloque uma segunda fileira de janelas com peitoril alto (ex.: 4 m).</p>
             </div>
 
             {semPlanta.length > 0 && (

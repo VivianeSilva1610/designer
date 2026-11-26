@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { caixa, cantos, encaixarNaParede, folgasMovel, letraParede, nivelFolga, paredes, pontoNaParede } from "@/lib/geometria";
+import { ehRedondo } from "@/lib/arquitetura";
 import { raioGiro, temGiro, type Abertura, type Movel, type Planta, type Ponto } from "@/lib/types";
 
 interface Props {
@@ -50,7 +51,25 @@ const PAREDE = 0.12; // espessura desenhada da parede
 const encaixe = (v: number) => +(Math.round(v / PASSO) * PASSO).toFixed(2);
 const m2 = (v: number) => v.toFixed(2).replace(".", ",");
 
+/** Símbolo da abertura; o arco aparece como meia-volta tracejada do lado de fora. */
 export function SimboloAbertura({ a, sel }: { a: Abertura; sel: boolean }) {
+  if (!a.arco) return <SimboloBase a={a} sel={sel} />;
+  const flecha = Math.min(0.35, a.largura / 4);
+  return (
+    <>
+      <SimboloBase a={a} sel={sel} />
+      <path
+        d={`M ${a.posicao} ${-PAREDE / 2} A ${a.largura / 2} ${flecha} 0 0 1 ${a.posicao + a.largura} ${-PAREDE / 2}`}
+        fill="none"
+        stroke={sel ? "#a0673f" : "#2b2622"}
+        strokeWidth={0.012}
+        strokeDasharray="0.05 0.04"
+      />
+    </>
+  );
+}
+
+function SimboloBase({ a, sel }: { a: Abertura; sel: boolean }) {
   const { posicao: x, largura: w } = a;
   const traco = sel ? "#a0673f" : "#2b2622";
   const fino = 0.015;
@@ -262,7 +281,7 @@ export default function PlantaSvg(props: Props) {
         const fonte = Math.min(0.2, Math.max(0.1, Math.min(m.w, m.h) / 4));
         return (
           <g key={m.id} onPointerDown={(e) => iniciarMovel(e, m)} style={{ cursor: onMover && !editarCantos ? "move" : "default" }} opacity={editarCantos ? 0.4 : 1}>
-            <rect x={m.x} y={m.y} width={m.w} height={m.h} rx={0.04} fill={m.cor} fillOpacity={0.85} stroke={sel || doConjunto ? "#a0673f" : "#2b2622"} strokeWidth={sel ? 0.05 : doConjunto ? 0.03 : 0.015} strokeDasharray={doConjunto ? "0.06 0.04" : undefined} />
+            <rect x={m.x} y={m.y} width={m.w} height={m.h} rx={ehRedondo(m.nome) ? m.w / 2 : 0.04} ry={ehRedondo(m.nome) ? m.h / 2 : 0.04} fill={m.cor} fillOpacity={0.85} stroke={sel || doConjunto ? "#a0673f" : "#2b2622"} strokeWidth={sel ? 0.05 : doConjunto ? 0.03 : 0.015} strokeDasharray={doConjunto ? "0.06 0.04" : undefined} />
             <text
               x={m.x + m.w / 2}
               y={m.y + m.h / 2}

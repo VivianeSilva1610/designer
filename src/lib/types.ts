@@ -21,6 +21,8 @@ export const ESTILOS = [
   "Mid-century",
   "Bistrô",
   "Boteco",
+  "Renascentista / italiano",
+  "Colonial",
 ];
 
 export const AMBIENTES = [
@@ -54,6 +56,10 @@ export const AMBIENTES = [
   "Vestiário de funcionários",
   "Escritório",
   "Área externa / deck",
+  // arquitetura com pátio (claustro, casa colonial, palazzo)
+  "Pátio interno",
+  "Jardim",
+  "Pórtico / galeria com arcos",
 ];
 
 /** Conjuntos prontos para projetos completos. */
@@ -72,6 +78,10 @@ export const PACOTES_AMBIENTES: { nome: string; ambientes: string[] }[] = [
     ambientes: ["Recepção / hostess", "Salão", "Bar", "Cozinha industrial", "Estoque / despensa", "Banheiro feminino", "Banheiro masculino", "Banheiro PCD", "Vestiário de funcionários", "Área externa / deck"],
   },
   { nome: "Café / bistrô", ambientes: ["Salão", "Bar", "Cozinha industrial", "Estoque / despensa", "Banheiro PCD"] },
+  {
+    nome: "Casa com pátio interno",
+    ambientes: ["Pátio interno", "Pórtico / galeria com arcos", "Hall de entrada", "Sala de estar", "Sala de jantar", "Cozinha", "Quarto de casal", "Banheiro"],
+  },
 ];
 
 export interface Item {
@@ -128,6 +138,7 @@ export interface Abertura {
   peitoril: number; // altura do piso até a base (0 para portas)
   dobradica: "esquerda" | "direita"; // só para porta de abrir
   abreParaFora: boolean; // só para porta de abrir
+  arco?: boolean; // topo em arco (meia-volta), como nas arcadas e janelas clássicas
 }
 
 export interface Ponto {

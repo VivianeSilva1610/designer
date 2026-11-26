@@ -73,6 +73,7 @@ export interface VaoParede {
   tipo: TipoAbertura;
   altura: number;
   peitoril: number;
+  arco?: boolean;
 }
 
 export interface ParedeCasa {
@@ -95,7 +96,7 @@ export function paredesDaCasa(p: Projeto, pos: Record<string, PosicaoCasa>): Par
       const u = rotacionar(par.u, ps.rotacao), n = rotacionar(par.n, ps.rotacao);
       const vaos = (amb.planta.aberturas ?? [])
         .filter((ab) => ab.parede === par.i)
-        .map((ab) => ({ s1: ab.posicao, s2: ab.posicao + ab.largura, tipo: ab.tipo, altura: ab.altura, peitoril: ab.peitoril }));
+        .map((ab) => ({ s1: ab.posicao, s2: ab.posicao + ab.largura, tipo: ab.tipo, altura: ab.altura, peitoril: ab.peitoril, arco: ab.arco }));
       todas.push({ ambienteId: amb.id, a, b, u, n, comprimento: par.comprimento, vaos });
     }
   }
@@ -145,7 +146,7 @@ export function moveisDaCasa(p: Projeto, pos: Record<string, PosicaoCasa>): Move
 }
 
 /** Altura típica (m) de cada peça, pelo nome. */
-export function alturaMovel(nome: string): { altura: number; vidro?: boolean; base?: number } {
+export function alturaMovel(nome: string, peDireito = PE_DIREITO_PADRAO): { altura: number; vidro?: boolean; base?: number } {
   const n = nome.toLowerCase();
   // TV: tela presa à parede, com o centro a ~1,05 m do piso (altura boa para quem está sentado)
   const pol = polegadasDaTV(nome);
@@ -155,8 +156,17 @@ export function alturaMovel(nome: string): { altura: number; vidro?: boolean; ba
   }
   // coifa: fica no alto, sobre o fogão
   if (/coifa/.test(n)) return { altura: 0.5, base: 1.9 };
+  // colunas e pilares vão do piso ao teto
+  if (/coluna|pilar/.test(n)) return { altura: peDireito };
   const regras: [RegExp, number, boolean?][] = [
-    [/tapete|área de giro/, 0.01],
+    [/tapete|área de giro|gramado/, 0.01],
+    [/caminho de pedra/, 0.02],
+    [/árvore/, 4.5],
+    [/arbusto/, 0.9],
+    [/espelho d.água/, 0.35],
+    [/canteiro/, 0.4],
+    [/fonte/, 1.3],
+    [/banco de jardim/, 0.45],
     [/box/, 2.0, true],
     [/câmara fria/, 2.4],
     [/guarda-roupa|armário|torre quente|cristaleira/, 2.1],

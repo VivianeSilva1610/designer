@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { PE_DIREITO_PADRAO, alturaMovel, cantosNaCasa, comodosComPlanta, moveisDaCasa, paredesDaCasa } from "@/lib/casa";
+import { ehCeuAberto, raioArco } from "@/lib/arquitetura";
 import { caixa, pontoNoPoligono } from "@/lib/geometria";
 import type { PosicaoCasa, Ponto, Projeto } from "@/lib/types";
 
@@ -127,7 +128,7 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
     // retângulos (na casa) dos móveis em que não dá para "ficar em pé"
     const ocupados = moveisDaCasa(projeto, posicoes)
       .filter(({ movel }) => {
-        const { altura, base = 0 } = alturaMovel(movel.nome);
+        const { altura, base = 0 } = alturaMovel(movel.nome, H);
         return altura > 0.05 && base < 0.3; // TV na parede não ocupa o piso
       })
       .map(({ movel, centro: c, rotacao }) => {
@@ -139,15 +140,20 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
     for (const amb of comodos) {
       const pts = cantosNaCasa(amb.planta, posicoes[amb.id]);
       const forma = new THREE.Shape(pts.map((q) => new THREE.Vector2(q.x, -q.y)));
-      const molhada = AREAS_MOLHADAS.test(`${amb.tipo} ${amb.nome}`);
-      const piso = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshStandardMaterial({ color: molhada ? "#dcd8d0" : "#c9a982", roughness: 0.8, side: THREE.DoubleSide }));
+      const rotulo = `${amb.tipo} ${amb.nome}`;
+      const molhada = AREAS_MOLHADAS.test(rotulo);
+      const aberto = ehCeuAberto(rotulo); // pátio / jardim: sem teto
+      const corPiso = /jardim|quintal/i.test(rotulo) ? "#9dbb7a" : aberto ? "#d6cfc1" : molhada ? "#dcd8d0" : "#c9a982";
+      const piso = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshStandardMaterial({ color: corPiso, roughness: 0.8, side: THREE.DoubleSide }));
       piso.rotation.x = -Math.PI / 2;
       piso.receiveShadow = true;
       cena.add(piso);
-      const teto = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshStandardMaterial({ color: "#fbfaf8", side: THREE.DoubleSide }));
-      teto.rotation.x = -Math.PI / 2;
-      teto.position.y = H;
-      tetos.add(teto);
+      if (!aberto) {
+        const teto = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshStandardMaterial({ color: "#fbfaf8", side: THREE.DoubleSide }));
+        teto.rotation.x = -Math.PI / 2;
+        teto.position.y = H;
+        tetos.add(teto);
+      }
       const dentro = pontoInterior(pts);
       pontosCentro[amb.id] = dentro;
       // visita começa perto da parede de baixo, olhando para dentro do cômodo
@@ -170,7 +176,7 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
       const area = (bx.maxX - bx.minX) * (bx.maxY - bx.minY);
       const luz = new THREE.PointLight(0xfff1de, 1.5 + area * 0.17, 0, 1.4);
       luz.position.set(dentro.x, H - 0.35, dentro.y);
-      luzesInternas.add(luz);
+      if (!aberto) luzesInternas.add(luz); // a céu aberto, quem ilumina é o sol
     }
     luzesInternas.visible = false;
     cena.add(tetos, nomes, luzesInternas);
@@ -182,6 +188,7 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
     const paredesCasa = paredesDaCasa(projeto, posicoes);
     const solidos: [Ponto, Ponto][] = []; // trechos que bloqueiam a passagem
     let grupoParedes = new THREE.Group();
+    const colunas: THREE.Object3D[] = []; // preenchido ao montar os móveis
     cena.add(grupoParedes);
 
     /** Levanta as paredes até `limite` (altura total ao caminhar; cortadas na maquete). */
@@ -191,6 +198,8 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
       grupoParedes = new THREE.Group();
       cena.add(grupoParedes);
       const cortada = limite < H - 0.01;
+      // colunas acompanham o corte da maquete
+      colunas.forEach((c) => c.scale.setY(Math.min(1, limite / H)));
       const registrar = solidos.length === 0;
     for (const w of paredesCasa) {
       const angulo = -Math.atan2(w.u.y, w.u.x);
@@ -209,6 +218,40 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
         m.receiveShadow = true;
         grupoParedes.add(m);
       };
+      /** Peça plana (desenhada no plano da parede: x ao longo dela, y para cima) com espessura. */
+      const peca = (forma: THREE.Shape, mat: THREE.Material, esp = ESPESSURA) => {
+        const geo = new THREE.ExtrudeGeometry(forma, { depth: esp, bevelEnabled: false, curveSegments: 24 });
+        geo.translate(0, 0, -esp / 2);
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(w.a.x + w.n.x * (ESPESSURA / 2), 0, w.a.y + w.n.y * (ESPESSURA / 2));
+        m.rotation.y = angulo;
+        m.castShadow = mat === matParede;
+        m.receiveShadow = true;
+        grupoParedes.add(m);
+      };
+      /** Parede acima de um arco: retângulo até o teto com o semicírculo recortado. */
+      const sobreArco = (s1: number, s2: number, topo: number) => {
+        const r = raioArco({ largura: s2 - s1, altura: topo });
+        const nascente = topo - r; // onde a curva começa
+        const f = new THREE.Shape();
+        f.moveTo(s1, nascente);
+        f.lineTo(s1, H);
+        f.lineTo(s2, H);
+        f.lineTo(s2, nascente);
+        f.absarc((s1 + s2) / 2, nascente, (s2 - s1) / 2, 0, Math.PI, false);
+        peca(f, matParede);
+        return nascente;
+      };
+      /** Vidro em arco (janela ou porta-balcão): retângulo + meia-lua. */
+      const vidroArco = (s1: number, s2: number, base: number, nascente: number) => {
+        const f = new THREE.Shape();
+        f.moveTo(s1, base);
+        f.lineTo(s2, base);
+        f.lineTo(s2, nascente);
+        f.absarc((s1 + s2) / 2, nascente, (s2 - s1) / 2, 0, Math.PI, false);
+        f.lineTo(s1, base);
+        peca(f, matVidro, 0.01);
+      };
       const solidosAntes = solidos.length;
       const vaos = w.vaos
         .map((v) => ({ ...v, s1: Math.max(0, v.s1), s2: Math.min(w.comprimento, v.s2) }))
@@ -221,6 +264,18 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
           solidos.push([ponto(cursor), ponto(v.s1)]);
         }
         const topo = Math.min(v.peitoril + v.altura, H);
+        // arco: só aparece com a parede inteira (na maquete cortada, o corte fica abaixo dele)
+        if (v.arco && !cortada && v.s2 - v.s1 > 0.1) {
+          const janela = v.tipo === "janela";
+          if (janela) bloco(v.s1, v.s2, 0, v.peitoril);
+          const nascente = sobreArco(v.s1, v.s2, topo);
+          if (janela || v.tipo === "porta_balcao") {
+            vidroArco(v.s1, v.s2, janela ? v.peitoril : 0, nascente);
+            solidos.push([ponto(v.s1), ponto(v.s2)]);
+          }
+          cursor = Math.max(cursor, v.s2);
+          continue;
+        }
         if (v.tipo === "janela") {
           bloco(v.s1, v.s2, 0, v.peitoril);
           bloco(v.s1, v.s2, topo, H);
@@ -250,11 +305,64 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
     /* ── móveis ── */
     const matContorno = new THREE.LineBasicMaterial({ color: "#5b5047", transparent: true, opacity: 0.35 });
     for (const { movel: m, centro: c, rotacao } of moveisDaCasa(projeto, posicoes)) {
-      const { altura, vidro, base = 0 } = alturaMovel(m.nome);
+      const { altura, vidro, base = 0 } = alturaMovel(m.nome, H);
+      const nomeMin = m.nome.toLowerCase();
+      // peças com forma própria
+      if (/coluna redonda|árvore|arbusto|fonte|espelho d.água/.test(nomeMin)) {
+        const g = new THREE.Group();
+        g.position.set(c.x, 0, c.y);
+        g.rotation.y = (-rotacao * Math.PI) / 180;
+        const mat = (cor: string, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color: cor, roughness: 0.8, ...extra });
+        const add = (geo: THREE.BufferGeometry, material: THREE.Material, y: number, sx = 1, sz = 1) => {
+          const malha = new THREE.Mesh(geo, material);
+          malha.position.y = y;
+          malha.scale.set(sx, 1, sz);
+          malha.castShadow = true;
+          malha.receiveShadow = true;
+          g.add(malha);
+        };
+        const rx = m.w / 2, rz = m.h / 2;
+        if (nomeMin.includes("coluna")) {
+          const r = Math.min(rx, rz);
+          add(new THREE.CylinderGeometry(r * 0.82, r * 0.9, altura - 0.3, 28), mat(m.cor), altura / 2); // fuste
+          add(new THREE.BoxGeometry(r * 2, 0.15, r * 2), mat(m.cor), 0.075); // base
+          add(new THREE.BoxGeometry(r * 2.1, 0.15, r * 2.1), mat(m.cor), altura - 0.075); // capitel
+        } else if (nomeMin.includes("árvore")) {
+          add(new THREE.CylinderGeometry(0.1, 0.14, altura * 0.45, 12), mat("#7a5c43"), altura * 0.225);
+          add(new THREE.SphereGeometry(1, 20, 14), mat(m.cor), altura * 0.65, rx, rz);
+          g.children[1].scale.y = altura * 0.38;
+        } else if (nomeMin.includes("arbusto")) {
+          add(new THREE.SphereGeometry(1, 16, 12), mat(m.cor), altura / 2, rx, rz);
+          g.children[0].scale.y = altura / 2;
+        } else if (nomeMin.includes("fonte")) {
+          add(new THREE.CylinderGeometry(1, 1, 0.45, 32), mat("#d8d2c6"), 0.225, rx, rz); // bacia
+          add(new THREE.CylinderGeometry(1, 1, 0.02, 32), mat("#7fb2c8", { roughness: 0.1 }), 0.44, rx * 0.88, rz * 0.88); // água
+          add(new THREE.CylinderGeometry(0.08, 0.12, altura - 0.45, 12), mat("#d8d2c6"), 0.45 + (altura - 0.45) / 2);
+        } else {
+          // espelho d'água: borda de pedra baixa com a lâmina d'água logo abaixo
+          const borda = 0.15;
+          for (const [w, d, x, z] of [[m.w, borda, 0, -rz + borda / 2], [m.w, borda, 0, rz - borda / 2], [borda, m.h, -rx + borda / 2, 0], [borda, m.h, rx - borda / 2, 0]]) {
+            const lado = new THREE.Mesh(new THREE.BoxGeometry(w, altura, d), mat("#ddd6c8"));
+            lado.position.set(x, altura / 2, z);
+            lado.castShadow = lado.receiveShadow = true;
+            g.add(lado);
+          }
+          add(new THREE.BoxGeometry(m.w - borda * 2, 0.02, m.h - borda * 2), mat(m.cor, { roughness: 0.05, metalness: 0.2 }), altura - 0.08);
+        }
+        if (nomeMin.includes("coluna")) colunas.push(g);
+        cena.add(g);
+        continue;
+      }
       const geo = new THREE.BoxGeometry(m.w, altura, m.h);
       const mat = new THREE.MeshStandardMaterial({ color: m.cor, roughness: 0.75, ...(vidro ? { transparent: true, opacity: 0.25 } : {}) });
       const malha = new THREE.Mesh(geo, mat);
       malha.position.set(c.x, base + altura / 2 + (altura < 0.02 ? 0.003 : 0), c.y);
+      if (/pilar/.test(nomeMin)) {
+        // pilar: origem no piso, para ser cortado junto com as paredes na maquete
+        geo.translate(0, altura / 2, 0);
+        malha.position.y = base;
+        colunas.push(malha);
+      }
       malha.rotation.y = (-rotacao * Math.PI) / 180;
       malha.castShadow = !vidro && altura > 0.05;
       malha.receiveShadow = true;
@@ -290,6 +398,7 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
       modoAtual = m;
       orbita.enabled = m === "maquete";
       tetos.visible = m === "caminhar";
+      cena.background = new THREE.Color(m === "caminhar" ? "#cfe3f3" : "#f6f3ee"); // céu ao andar (visto no pátio e pelas janelas)
       luzesInternas.visible = m === "caminhar";
       nomes.visible = m === "maquete";
       camera.fov = m === "caminhar" ? 72 : 55;
