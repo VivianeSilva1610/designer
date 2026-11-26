@@ -183,6 +183,13 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
 
     /* ── paredes com vãos ── */
     const matParede = new THREE.MeshStandardMaterial({ color: "#f4f0ea", roughness: 0.9 });
+    // uma cor por parede (escolhida na planta); materiais repetidos são reaproveitados
+    const matsCor = new Map<string, THREE.MeshStandardMaterial>();
+    const materialParede = (cor?: string) => {
+      if (!cor) return matParede;
+      if (!matsCor.has(cor)) matsCor.set(cor, new THREE.MeshStandardMaterial({ color: cor, roughness: 0.9 }));
+      return matsCor.get(cor)!;
+    };
     const matTopo = new THREE.MeshStandardMaterial({ color: "#3b3531", roughness: 0.9 }); // corte da parede na maquete
     const matVidro = new THREE.MeshStandardMaterial({ color: "#b9d6e6", transparent: true, opacity: 0.3, roughness: 0.1 });
     const paredesCasa = paredesDaCasa(projeto, posicoes);
@@ -202,19 +209,20 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
       colunas.forEach((c) => c.scale.setY(Math.min(1, limite / H)));
       const registrar = solidos.length === 0;
     for (const w of paredesCasa) {
+      const matW = materialParede(w.cor);
       const angulo = -Math.atan2(w.u.y, w.u.x);
       const ponto = (s: number): Ponto => ({ x: w.a.x + w.u.x * s, y: w.a.y + w.u.y * s });
-      const bloco = (s1: number, s2: number, y1: number, y2Original: number, mat = matParede, esp = ESPESSURA) => {
+      const bloco = (s1: number, s2: number, y1: number, y2Original: number, mat = matW, esp = ESPESSURA) => {
         const y2 = Math.min(y2Original, limite);
         const len = s2 - s1, alt = y2 - y1;
         if (len < 0.005 || alt < 0.005) return;
         const c = ponto(s1 + len / 2);
         // na maquete, o topo cortado fica escuro, como num desenho de corte
-        const mats = cortada && mat === matParede && y2 < y2Original ? [mat, mat, matTopo, mat, mat, mat] : mat;
+        const mats = cortada && mat === matW && y2 < y2Original ? [mat, mat, matTopo, mat, mat, mat] : mat;
         const m = new THREE.Mesh(new THREE.BoxGeometry(len, alt, esp), mats);
         m.position.set(c.x + w.n.x * (ESPESSURA / 2), y1 + alt / 2, c.y + w.n.y * (ESPESSURA / 2));
         m.rotation.y = angulo;
-        m.castShadow = mat === matParede;
+        m.castShadow = mat === matW;
         m.receiveShadow = true;
         grupoParedes.add(m);
       };
@@ -225,7 +233,7 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
         const m = new THREE.Mesh(geo, mat);
         m.position.set(w.a.x + w.n.x * (ESPESSURA / 2), 0, w.a.y + w.n.y * (ESPESSURA / 2));
         m.rotation.y = angulo;
-        m.castShadow = mat === matParede;
+        m.castShadow = mat === matW;
         m.receiveShadow = true;
         grupoParedes.add(m);
       };
@@ -239,7 +247,7 @@ export default function Casa3D({ projeto, posicoes, comodoInicial, modoInicial =
         f.lineTo(s2, H);
         f.lineTo(s2, nascente);
         f.absarc((s1 + s2) / 2, nascente, (s2 - s1) / 2, 0, Math.PI, false);
-        peca(f, matParede);
+        peca(f, matW);
         return nascente;
       };
       /** Vidro em arco (janela ou porta-balcão): retângulo + meia-lua. */

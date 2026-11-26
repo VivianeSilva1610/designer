@@ -163,6 +163,8 @@ export interface Planta {
   pontos?: Ponto[]; // cantos do cômodo em sentido horário; ausente = retângulo largura × comprimento
   moveis: Movel[];
   aberturas?: Abertura[]; // opcional: plantas antigas não tinham
+  corParede?: string; // cor padrão das paredes deste cômodo (lado de dentro)
+  coresParedes?: Record<number, string>; // cor de uma parede específica (índice → cor)
 }
 
 export interface Cor {

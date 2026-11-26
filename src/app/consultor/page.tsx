@@ -3,8 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "@/components/Markdown";
 import { reduzirImagem, useProjetos } from "@/lib/store";
-import { descreverAbertura, descreverFormato } from "@/lib/geometria";
-import { brl, totalItens } from "@/lib/types";
+import { descreverAbertura, descreverFormato, letraParede } from "@/lib/geometria";
+import { nomeDaCor } from "@/lib/arquitetura";
+import { brl, totalItens, type Planta } from "@/lib/types";
+
+function descreverCores(p: Planta) {
+  const extras = Object.entries(p.coresParedes ?? {}).map(([i, c]) => `parede ${letraParede(Number(i))} ${nomeDaCor(c)}`);
+  return [`geral ${nomeDaCor(p.corParede)}`, ...extras].join(", ");
+}
 
 interface Mensagem {
   role: "user" | "assistant";
@@ -43,7 +49,10 @@ export default function Consultor() {
     const ambientes = p.ambientes.map((a) => {
       const planta = a.planta
         ? `\n  Planta: ${descreverFormato(a.planta)}. Móveis: ${a.planta.moveis.map((m) => `${m.nome} ${m.w}x${m.h}m em (${m.x}, ${m.y})`).join("; ") || "nenhum"}` +
-          `\n  Portas e janelas: ${(a.planta.aberturas ?? []).map((ab) => descreverAbertura(a.planta!, ab)).join("; ") || "não marcadas"}`
+          `
+  Portas e janelas: ${(a.planta.aberturas ?? []).map((ab) => descreverAbertura(a.planta!, ab)).join("; ") || "não marcadas"}` +
+          `
+  Cores das paredes: ${descreverCores(a.planta)}`
         : "";
       const itens = listaItens(a.id);
       return `### ${a.nome} (${a.tipo})${planta}${itens ? `\n  Itens:\n${itens}` : ""}`;

@@ -84,6 +84,7 @@ export interface ParedeCasa {
   n: Ponto; // para dentro do cômodo
   comprimento: number;
   vaos: VaoParede[];
+  cor?: string; // cor da face de dentro
 }
 
 export function paredesDaCasa(p: Projeto, pos: Record<string, PosicaoCasa>): ParedeCasa[] {
@@ -97,7 +98,8 @@ export function paredesDaCasa(p: Projeto, pos: Record<string, PosicaoCasa>): Par
       const vaos = (amb.planta.aberturas ?? [])
         .filter((ab) => ab.parede === par.i)
         .map((ab) => ({ s1: ab.posicao, s2: ab.posicao + ab.largura, tipo: ab.tipo, altura: ab.altura, peitoril: ab.peitoril, arco: ab.arco }));
-      todas.push({ ambienteId: amb.id, a, b, u, n, comprimento: par.comprimento, vaos });
+      const cor = amb.planta.coresParedes?.[par.i] ?? amb.planta.corParede;
+      todas.push({ ambienteId: amb.id, a, b, u, n, comprimento: par.comprimento, vaos, cor });
     }
   }
 

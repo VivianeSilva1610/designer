@@ -300,6 +300,14 @@ export default function PlantaSvg(props: Props) {
 
       {/* paredes */}
       <polygon points={poligono} fill="none" stroke="#2b2622" strokeWidth={PAREDE} strokeLinejoin="miter" pointerEvents="none" />
+      {/* faixa com a cor de cada parede, do lado de dentro */}
+      {listaParedes.map((par) => {
+        const cor = planta.coresParedes?.[par.i] ?? planta.corParede;
+        if (!cor) return null;
+        const t = PAREDE / 2 + 0.035;
+        const p1 = pontoNaParede(par, 0.04, t), p2 = pontoNaParede(par, par.comprimento - 0.04, t);
+        return <line key={`cor-${par.i}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={cor} strokeWidth={0.07} pointerEvents="none" />;
+      })}
 
       {/* letra e medida de cada parede, do lado de fora */}
       {listaParedes.map((par) => {

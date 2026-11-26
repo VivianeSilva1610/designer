@@ -7,7 +7,7 @@ import { useProjetos } from "@/lib/store";
 import EditorFormato from "@/components/EditorFormato";
 import { BIBLIOTECA, lugaresDoMovel, medidaTV, polegadasDaTV, type ItemBiblioteca } from "@/lib/biblioteca";
 import { desagrupar, duplicarConjunto, girarConjunto, membros, moverConjunto, pecasDoItem, removerConjunto, repetirEmGrade } from "@/lib/conjuntos";
-import { gerarArcada } from "@/lib/arquitetura";
+import { CORES_PAREDE, COR_PAREDE_PADRAO, gerarArcada, nomeDaCor } from "@/lib/arquitetura";
 import {
   DIRECAO_LABEL,
   aplicarCantos,
@@ -124,6 +124,7 @@ function Editor() {
   const [mostrarFolgas, setMostrarFolgas] = useState(true);
   const [regua, setRegua] = useState(false);
   const [grade, setGrade] = useState({ linhas: "3", colunas: "4", folga: "0.60" });
+  const [alvoCor, setAlvoCor] = useState<"todas" | number>("todas");
   const [arcada, setArcada] = useState({ aberto: false, parede: "auto", largura: "1.60", pilar: "0.40", altura: "2.60", erro: "" });
   const [movelPers, setMovelPers] = useState<{ aberto: boolean; nome: string; w: string; h: string; cor: string }>({ aberto: false, nome: "", w: "1.00", h: "0.60", cor: "#b8987a" });
 
@@ -207,6 +208,20 @@ function Editor() {
     }
     setForm({ ...form, nome: "", posicao: "", salvar: false });
   }
+
+  /** Pinta todas as paredes (cor padrão do cômodo) ou só uma; `undefined` volta ao padrão. */
+  function pintar(cor: string | undefined) {
+    setPlanta((p) => {
+      if (alvoCor === "todas") return { ...p, corParede: cor, coresParedes: undefined };
+      const cores = { ...(p.coresParedes ?? {}) };
+      if (cor) cores[alvoCor] = cor;
+      else delete cores[alvoCor];
+      return { ...p, coresParedes: Object.keys(cores).length ? cores : undefined };
+    });
+  }
+  const corDaParede = (i: number) => planta.coresParedes?.[i] ?? planta.corParede;
+  const corDoAlvo = alvoCor === "todas" ? planta.corParede : corDaParede(alvoCor);
+  if (alvoCor !== "todas" && alvoCor >= listaParedes.length) setAlvoCor("todas"); // formato mudou
 
   /** Enche uma parede com arcos iguais separados por pilares (pórtico / galeria). */
   function criarArcada(e: React.FormEvent) {
@@ -464,6 +479,52 @@ function Editor() {
                 </button>
               ))}
             </div>
+          </div>
+          <div>
+            <div className="label">🎨 Cores das paredes</div>
+            <div className="mb-2 flex flex-wrap gap-1">
+              <button
+                className={`rounded-full border px-3 py-1 text-xs ${alvoCor === "todas" ? "border-accent bg-accent-soft text-accent" : "border-line"}`}
+                onClick={() => setAlvoCor("todas")}
+              >
+                Todas
+              </button>
+              {listaParedes.map((par) => (
+                <button
+                  key={par.i}
+                  className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs ${alvoCor === par.i ? "border-accent bg-accent-soft text-accent" : "border-line"}`}
+                  onClick={() => setAlvoCor(par.i)}
+                  title={`Parede ${letraParede(par.i)}: ${nomeDaCor(corDaParede(par.i))}`}
+                >
+                  <span className="inline-block h-3 w-3 rounded-full border border-line" style={{ background: corDaParede(par.i) ?? COR_PAREDE_PADRAO }} />
+                  {letraParede(par.i)}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-5 gap-1">
+              {CORES_PAREDE.map((c) => (
+                <button
+                  key={c.hex}
+                  title={c.nome}
+                  aria-label={c.nome}
+                  onClick={() => pintar(c.hex)}
+                  className={`h-7 rounded-md border ${corDoAlvo?.toLowerCase() === c.hex ? "border-accent ring-2 ring-accent" : "border-line"}`}
+                  style={{ background: c.hex }}
+                />
+              ))}
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <label className="flex items-center gap-1">
+                Outra cor
+                <input type="color" className="h-7 w-10 cursor-pointer rounded border border-line" value={corDoAlvo ?? COR_PAREDE_PADRAO} onChange={(e) => pintar(e.target.value)} />
+              </label>
+              <button className="ml-auto text-muted underline" onClick={() => pintar(undefined)}>
+                {alvoCor === "todas" ? "Voltar tudo ao padrão" : "Usar a cor padrão"}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              {alvoCor === "todas" ? "Cor do cômodo inteiro" : `Parede ${letraParede(alvoCor)}`}: <b className="text-ink">{nomeDaCor(corDoAlvo)}</b>. Pinta o lado de dentro do cômodo; veja o resultado no 3D.
+            </p>
           </div>
           <div>
             <div className="label">Adicionar móvel</div>
